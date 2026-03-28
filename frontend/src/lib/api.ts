@@ -125,7 +125,7 @@ interface RegisterResponse {
     };
   };
 }
-
+//Frontend connection with backend usig axios for logging in, registering, and other auth related functions. Also includes token management and error handling. 
 export async function loginUser(email: string, password: string): Promise<LoginResponse> {
   try {
     const res = await api.post("/api/auth/login", { email, password });

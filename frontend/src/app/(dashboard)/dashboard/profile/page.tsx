@@ -15,7 +15,8 @@ import {
   ChartBarIcon,
   CalendarIcon,
   TrophyIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  ArrowPathIcon
 } from "@heroicons/react/24/outline";
 
 interface UserProfile {
@@ -50,6 +51,7 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   
   const [formData, setFormData] = useState<FormData>({
     name: "",
@@ -59,26 +61,42 @@ export default function ProfilePage() {
   });
 
   // Fetch user profile
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const token = getToken();
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const data = await response.json();
+  const fetchProfile = async () => {
+    try {
+      const token = getToken();
+      console.log("🔑 Token:", token ? "Present" : "Missing");
+      
+      if (!token) {
+        console.log("❌ No token found, redirecting to login");
+        router.push("/login");
+        return;
+      }
+
+      console.log("📡 Fetching user profile from:", `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`);
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      
+      console.log("📥 Response status:", response.status);
+      const data = await response.json();
+      console.log("📦 Response data:", data);
+      
+      if (data.success) {
+        const userData = data.data.user;
+        console.log("✅ User data loaded:", userData);
         
-        if (data.success) {
-          const userData = data.data.user;
-          // Fetch additional stats from dashboard endpoint
+        // Fetch additional stats from dashboard endpoint
+        try {
           const statsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/stats`, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
           });
           const statsData = await statsResponse.json();
+          console.log("📊 Stats data:", statsData);
           
           setProfile({
             id: userData.id,
@@ -95,19 +113,40 @@ export default function ProfilePage() {
               improvementRate: 0,
             }
           });
-          
-          setFormData(prev => ({ ...prev, name: userData.name }));
-        } else {
-          throw new Error("Failed to fetch profile");
+        } catch (statsError) {
+          console.error("⚠️ Failed to fetch stats:", statsError);
+          // Set profile without stats
+          setProfile({
+            id: userData.id,
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
+            createdAt: userData.createdAt || new Date().toISOString(),
+            stats: {
+              totalInterviews: 0,
+              averageScore: 0,
+              questionsAnswered: 0,
+              streak: 0,
+              bestCategory: "N/A",
+              improvementRate: 0,
+            }
+          });
         }
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-        setMessage({ type: 'error', text: 'Failed to load profile data' });
-      } finally {
-        setLoading(false);
+        
+        setFormData(prev => ({ ...prev, name: userData.name }));
+      } else {
+        console.error("❌ API returned error:", data.message);
+        throw new Error(data.message || "Failed to fetch profile");
       }
-    };
+    } catch (error) {
+      console.error("❌ Error fetching profile:", error);
+      setMessage({ type: 'error', text: 'Failed to load profile data. Please refresh the page.' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchProfile();
   }, []);
 
@@ -142,6 +181,15 @@ export default function ProfilePage() {
         setProfile(prev => prev ? { ...prev, name: formData.name } : null);
         setMessage({ type: 'success', text: 'Profile updated successfully!' });
         setIsEditing(false);
+        // Update cached user data
+        if (typeof window !== "undefined") {
+          const cachedUser = localStorage.getItem("user");
+          if (cachedUser) {
+            const user = JSON.parse(cachedUser);
+            user.name = formData.name;
+            localStorage.setItem("user", JSON.stringify(user));
+          }
+        }
       } else {
         throw new Error(data.message || 'Update failed');
       }
@@ -216,10 +264,20 @@ export default function ProfilePage() {
     });
   };
 
+  // Retry loading
+  const handleRetry = () => {
+    setLoading(true);
+    setMessage(null);
+    fetchProfile();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B6B]"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B6B] mx-auto mb-4"></div>
+          <p className="text-[#9aabb8] text-sm">Loading profile...</p>
+        </div>
       </div>
     );
   }
@@ -227,14 +285,29 @@ export default function ProfilePage() {
   if (!profile) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-[#9aabb8] mb-4">Failed to load profile</p>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-4 py-2 rounded-xl bg-[#FF6B6B] text-[#0D1B2A]"
-          >
-            Back to Dashboard
-          </button>
+        <div className="text-center max-w-md mx-auto p-8">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-red-500/20 border border-red-500/30 flex items-center justify-center">
+            <XCircleIcon className="h-10 w-10 text-red-400" />
+          </div>
+          <p className="text-[#9aabb8] mb-2 text-lg">Failed to load profile</p>
+          <p className="text-[#9aabb8] text-sm mb-6">
+            There was an error loading your profile data. This could be due to a network issue or authentication problem.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={handleRetry}
+              className="px-4 py-2 rounded-xl bg-[#FF6B6B] text-[#0D1B2A] hover:bg-[#FFA07A] transition-all flex items-center gap-2"
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+              Retry
+            </button>
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="px-4 py-2 rounded-xl border border-[#2a3a4a] text-[#9aabb8] hover:text-[#FFF5F2] transition-all"
+            >
+              Back to Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -280,16 +353,19 @@ export default function ProfilePage() {
                 <div className="relative inline-block">
                   <div className="w-28 h-28 mx-auto rounded-2xl bg-gradient-to-br from-[#FF6B6B]/20 to-[#FFA07A]/20 border border-[#FF6B6B]/30 flex items-center justify-center">
                     <span className="text-5xl font-heading font-bold text-[#FF6B6B]">
-                      {profile.name.charAt(0).toUpperCase()}
+                      {(profile.name || profile.email || "U").charAt(0).toUpperCase()}
                     </span>
                   </div>
-                  <button className="absolute bottom-0 right-0 p-1.5 rounded-full bg-[#FF6B6B] text-[#0D1B2A] hover:bg-[#FFA07A] transition-colors">
+                  <button 
+                    onClick={() => alert("Avatar upload coming soon!")}
+                    className="absolute bottom-0 right-0 p-1.5 rounded-full bg-[#FF6B6B] text-[#0D1B2A] hover:bg-[#FFA07A] transition-colors"
+                  >
                     <CameraIcon className="h-4 w-4" />
                   </button>
                 </div>
                 
                 <h2 className="font-heading text-xl font-bold text-[#FFF5F2] mt-4">
-                  {profile.name}
+                  {profile.name || profile.email || "User"}
                 </h2>
                 <p className="text-[#9aabb8] text-sm font-mono mt-1">
                   {profile.email}
@@ -376,7 +452,7 @@ export default function ProfilePage() {
                     <label className="text-xs text-[#9aabb8] font-mono uppercase tracking-wider block mb-1">
                       Full Name
                     </label>
-                    <p className="text-[#FFF5F2] font-body">{profile.name}</p>
+                    <p className="text-[#FFF5F2] font-body">{profile.name || profile.email || "User"}</p>
                   </div>
                   <div>
                     <label className="text-xs text-[#9aabb8] font-mono uppercase tracking-wider block mb-1">
@@ -563,7 +639,6 @@ export default function ProfilePage() {
               <button
                 onClick={() => {
                   if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-                    // Implement account deletion
                     alert("Account deletion not implemented yet. Contact support.");
                   }
                 }}
