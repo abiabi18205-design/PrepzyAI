@@ -25,7 +25,7 @@ export default function Navbar() {
     const checkAuth = () => {
       const isAuth = isLoggedIn();
       setLoggedIn(isAuth);
-      
+
       if (isAuth) {
         const cachedUser = getUserFromCache();
         if (cachedUser) {
@@ -84,19 +84,19 @@ export default function Navbar() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-surface/90 backdrop-blur-xl">
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-white/70 backdrop-blur-xl">
+      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
 
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/30 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <div className="w-9 h-9 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center group-hover:bg-accent/20 transition-all duration-300">
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
               <path d="M2 4h5v2H2zM2 8h8v2H2zM2 12h6v2H2z" fill="#FF6B6B" />
               <circle cx="12" cy="5" r="3" fill="#FF6B6B" opacity="0.4" />
               <circle cx="12" cy="5" r="1.5" fill="#FF6B6B" />
             </svg>
           </div>
-          <span className="font-heading font-bold text-lg text-light">
+          <span className="font-heading font-extrabold text-xl tracking-tight text-light">
             Prepzy<span className="text-accent">AI</span>
           </span>
         </Link>
@@ -107,11 +107,10 @@ export default function Navbar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border
-                ${
-                  pathname === link.href
-                    ? "bg-accent/10 text-accent border-accent/20"
-                    : "text-muted hover:text-light hover:bg-white/5 border-transparent"
+              className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all duration-300
+                ${pathname === link.href
+                  ? "text-accent bg-accent/5"
+                  : "text-muted hover:text-light hover:bg-black/5"
                 }`}
             >
               {link.label}
@@ -120,40 +119,38 @@ export default function Navbar() {
         </nav>
 
         {/* CTA Buttons */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {!loggedIn ? (
-            // Show login/signup for unauthenticated users
             <>
               <Link
                 href="/login"
-                className="hidden sm:inline-block px-4 py-2 text-sm text-muted hover:text-light transition-colors font-body"
+                className="hidden sm:inline-block text-sm font-semibold text-muted hover:text-light transition-colors font-body"
               >
                 Sign in
               </Link>
               <Link
                 href="/signup"
-                className="px-4 py-2 rounded-xl bg-accent text-ink text-sm font-heading font-bold hover:bg-accent/90 transition-colors"
+                className="px-6 py-2.5 rounded-xl bg-accent text-white text-sm font-heading font-bold shadow-lg shadow-accent/20 hover:bg-accent/90 hover:scale-[1.02] transition-all duration-300"
               >
                 Get Early Access
               </Link>
             </>
           ) : (
-            // Show user menu for authenticated users
             <div className="relative">
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-white/5 transition-colors"
+                className="flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-black/5 transition-all duration-300"
               >
-                <div className="w-8 h-8 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center overflow-hidden">
                   <span className="text-accent text-sm font-mono font-bold">
                     {user?.name?.charAt(0).toUpperCase() || "U"}
                   </span>
                 </div>
-                <span className="hidden sm:inline-block text-sm text-light font-body">
+                <span className="hidden sm:inline-block text-sm font-semibold text-light font-body">
                   {user?.name?.split(" ")[0] || "User"}
                 </span>
                 <svg
-                  className={`w-4 h-4 text-muted transition-transform ${showDropdown ? "rotate-180" : ""}`}
+                  className={`w-4 h-4 text-muted transition-transform duration-300 ${showDropdown ? "rotate-180" : ""}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -169,24 +166,23 @@ export default function Navbar() {
                     className="fixed inset-0 z-40"
                     onClick={() => setShowDropdown(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-surface shadow-lg z-50 overflow-hidden">
-                    <div className="py-2">
-                      <Link
-                        href="/dashboard"
-                        className="flex items-center gap-2 px-4 py-2 text-sm text-light hover:bg-white/5 transition-colors"
-                        onClick={() => setShowDropdown(false)}
-                      >
-                        <UserCircleIcon className="w-4 h-4" />
-                        Dashboard
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 transition-colors"
-                      >
-                        <ArrowRightOnRectangleIcon className="w-4 h-4" />
-                        Sign out
-                      </button>
-                    </div>
+                  <div className="absolute right-0 mt-3 w-52 rounded-2xl border border-border bg-white shadow-xl z-50 overflow-hidden py-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <Link
+                      href="/dashboard"
+                      className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-light hover:bg-accent/5 hover:text-accent transition-all duration-200"
+                      onClick={() => setShowDropdown(false)}
+                    >
+                      <UserCircleIcon className="w-5 h-5 opacity-70" />
+                      Dashboard
+                    </Link>
+                    <div className="h-px bg-border my-1 mx-2" />
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 transition-all duration-200"
+                    >
+                      <ArrowRightOnRectangleIcon className="w-5 h-5 opacity-70" />
+                      Sign out
+                    </button>
                   </div>
                 </>
               )}

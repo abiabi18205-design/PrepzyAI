@@ -18,8 +18,32 @@ import {
   XCircleIcon,
   MicrophoneIcon,
   SparklesIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  LightBulbIcon,
+  BookOpenIcon,
+  ChatBubbleLeftRightIcon
 } from "@heroicons/react/24/outline";
+
+interface AnswerDetail {
+  questionId: string;
+  questionTitle: string;
+  questionCategory: string;
+  questionDifficulty: string;
+  userAnswer: string;
+  result: string;
+  score: number;
+  criteriaScores?: {
+    accuracy: number;
+    completeness: number;
+    clarity: number;
+    examples: number;
+    communication: number;
+  };
+  confidenceScore?: number;
+  feedback: string;
+  improvement: string;
+  followUpQuestions?: string[];
+}
 
 interface InterviewResult {
   _id: string;
@@ -30,16 +54,22 @@ interface InterviewResult {
   totalQuestions: number;
   answeredQuestions: number;
   overallScore: number;
-  categoryScores: {
-    technical: number;
-    behavioral: number;
-    communication: number;
-    confidence: number;
-  };
+  status: "completed" | "in-progress" | "abandoned";
+  category: string;
+  difficulty: string;
   strengths: string[];
   improvements: string[];
   feedback: string;
-  status: "completed" | "in-progress" | "abandoned";
+  avgConfidence?: number;
+  categoryAnalysis?: Array<{
+    category: string;
+    score: number;
+    feedback: string;
+  }>;
+  recommendedResources?: string[];
+  nextSteps?: string[];
+  confidenceAssessment?: string;
+  answers?: AnswerDetail[];
 }
 
 interface FilterState {
@@ -47,6 +77,7 @@ interface FilterState {
   minScore: number;
   status: "all" | "completed" | "in-progress";
   search: string;
+  category: string;
 }
 
 interface PaginationState {
@@ -63,6 +94,8 @@ const timeRanges = [
   { value: "all", label: "All Time" }
 ];
 
+const categories = ["All", "Technical", "Behavioral", "HR", "System Design", "DSA", "Mixed"];
+
 export default function ResultsPage() {
   const router = useRouter();
   const [results, setResults] = useState<InterviewResult[]>([]);
@@ -72,13 +105,15 @@ export default function ResultsPage() {
     averageScore: 0,
     bestScore: 0,
     improvementRate: 0,
-    totalQuestionsAnswered: 0
+    totalQuestionsAnswered: 0,
+    averageConfidence: 0
   });
   const [filters, setFilters] = useState<FilterState>({
     timeRange: "all",
     minScore: 0,
     status: "all",
-    search: ""
+    search: "",
+    category: "All"
   });
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
@@ -89,6 +124,7 @@ export default function ResultsPage() {
   const [selectedResult, setSelectedResult] = useState<InterviewResult | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
 
   // Fetch results
   useEffect(() => {
@@ -110,7 +146,7 @@ export default function ResultsPage() {
       });
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/results?${queryParams}`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/practice/results?${queryParams}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -138,7 +174,7 @@ export default function ResultsPage() {
     try {
       const token = getToken();
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/results/stats`,
+        `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/stats`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -148,7 +184,14 @@ export default function ResultsPage() {
       
       const data = await response.json();
       if (data.success) {
-        setStats(data.data);
+        setStats({
+          totalInterviews: data.data.totalInterviews || 0,
+          averageScore: data.data.averageScore || 0,
+          bestScore: data.data.bestScore || 0,
+          improvementRate: data.data.improvementRate || 0,
+          totalQuestionsAnswered: data.data.questionsAnswered || 0,
+          averageConfidence: data.data.averageConfidence || 0
+        });
       }
     } catch (error) {
       console.error("Error fetching stats:", error);
@@ -165,7 +208,8 @@ export default function ResultsPage() {
       timeRange: "all",
       minScore: 0,
       status: "all",
-      search: ""
+      search: "",
+      category: "All"
     });
     setPagination(prev => ({ ...prev, page: 1 }));
   };
@@ -181,12 +225,6 @@ export default function ResultsPage() {
     if (score >= 80) return "text-green-400";
     if (score >= 60) return "text-yellow-400";
     return "text-red-400";
-  };
-
-  const getScoreBgColor = (score: number) => {
-    if (score >= 80) return "bg-green-400/10 border-green-400/20";
-    if (score >= 60) return "bg-yellow-400/10 border-yellow-400/20";
-    return "bg-red-400/10 border-red-400/20";
   };
 
   const formatDate = (dateString: string) => {
@@ -211,6 +249,27 @@ export default function ResultsPage() {
     }
   };
 
+  const toggleAnswerExpand = (answerId: string) => {
+    const newExpanded = new Set(expandedAnswers);
+    if (newExpanded.has(answerId)) {
+      newExpanded.delete(answerId);
+    } else {
+      newExpanded.add(answerId);
+    }
+    setExpandedAnswers(newExpanded);
+  };
+
+  const getCriteriaLabel = (key: string) => {
+    const labels: Record<string, string> = {
+      accuracy: "Technical Accuracy",
+      completeness: "Completeness",
+      clarity: "Clarity & Structure",
+      examples: "Real-world Examples",
+      communication: "Communication",
+    };
+    return labels[key] || key;
+  };
+
   return (
     <div className="min-h-screen p-6">
       {/* Header */}
@@ -224,7 +283,7 @@ export default function ResultsPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
         <div className="p-6 rounded-2xl border border-[#2a3a4a] bg-[#1B2838]">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[#9aabb8] text-sm">Total Interviews</span>
@@ -256,6 +315,17 @@ export default function ResultsPage() {
             {stats.bestScore}%
           </div>
           <div className="text-[#9aabb8] text-xs mt-2">Your personal best</div>
+        </div>
+
+        <div className="p-6 rounded-2xl border border-[#2a3a4a] bg-[#1B2838]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[#9aabb8] text-sm">Avg Confidence</span>
+            <ChatBubbleLeftRightIcon className="h-5 w-5 text-[#6EE7B7]" />
+          </div>
+          <div className="font-heading text-3xl font-bold text-[#6EE7B7]">
+            {stats.averageConfidence}%
+          </div>
+          <div className="text-[#9aabb8] text-xs mt-2">Confidence score</div>
         </div>
 
         <div className="p-6 rounded-2xl border border-[#2a3a4a] bg-[#1B2838]">
@@ -312,6 +382,23 @@ export default function ResultsPage() {
               ))}
             </div>
 
+            {/* Category Filter */}
+            <div className="flex gap-2">
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => handleFilterChange("category", cat)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                    filters.category === cat
+                      ? "bg-[#FF6B6B] text-[#0D1B2A]"
+                      : "bg-[#1B2838] text-[#9aabb8] hover:text-[#FFF5F2] border border-[#2a3a4a]"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
             {/* Status Filter */}
             <div className="flex gap-2">
               <button
@@ -362,7 +449,7 @@ export default function ResultsPage() {
             </div>
 
             {/* Clear Filters */}
-            {(filters.timeRange !== "all" || filters.minScore !== 0 || filters.status !== "all" || filters.search) && (
+            {(filters.timeRange !== "all" || filters.minScore !== 0 || filters.status !== "all" || filters.search || filters.category !== "All") && (
               <button
                 onClick={clearFilters}
                 className="px-3 py-1.5 rounded-lg text-sm text-[#FF6B6B] hover:bg-[#FF6B6B]/10 transition-all"
@@ -408,13 +495,16 @@ export default function ResultsPage() {
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <h3 className="font-heading font-bold text-lg text-[#FFF5F2] group-hover:text-[#FF6B6B] transition-colors">
                         {result.sessionTitle}
                       </h3>
                       <span className={`px-2 py-1 rounded-lg text-xs font-mono flex items-center gap-1 ${statusStyle}`}>
                         <StatusIcon className="h-3 w-3" />
                         {getStatusBadge(result.status).text}
+                      </span>
+                      <span className="px-2 py-1 rounded-lg text-xs font-mono bg-[#FF6B6B]/10 text-[#FF6B6B]">
+                        {result.category}
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-4 text-sm text-[#9aabb8]">
@@ -430,6 +520,12 @@ export default function ResultsPage() {
                         <MicrophoneIcon className="h-4 w-4" />
                         <span>{result.answeredQuestions}/{result.totalQuestions} answered</span>
                       </div>
+                      {result.avgConfidence && (
+                        <div className="flex items-center gap-1">
+                          <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                          <span>Confidence: {result.avgConfidence}/10</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
@@ -440,49 +536,17 @@ export default function ResultsPage() {
                   </div>
                 </div>
 
-                {/* Score Bars */}
-                <div className="grid grid-cols-4 gap-3 mt-4 pt-4 border-t border-[#2a3a4a]">
-                  <div>
-                    <div className="text-[#9aabb8] text-xs mb-1">Technical</div>
-                    <div className="h-1.5 bg-[#2a3a4a] rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-[#FF6B6B] rounded-full transition-all"
-                        style={{ width: `${result.categoryScores.technical}%` }}
-                      />
-                    </div>
-                    <div className="text-[#9aabb8] text-xs mt-1">{result.categoryScores.technical}%</div>
+                {/* Strengths Preview */}
+                {result.strengths && result.strengths.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[#2a3a4a]">
+                    {result.strengths.slice(0, 2).map((strength, idx) => (
+                      <span key={idx} className="text-xs text-green-400">✓ {strength}</span>
+                    ))}
+                    {result.strengths.length > 2 && (
+                      <span className="text-xs text-[#9aabb8]">+{result.strengths.length - 2} more</span>
+                    )}
                   </div>
-                  <div>
-                    <div className="text-[#9aabb8] text-xs mb-1">Behavioral</div>
-                    <div className="h-1.5 bg-[#2a3a4a] rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-[#FF6B6B] rounded-full transition-all"
-                        style={{ width: `${result.categoryScores.behavioral}%` }}
-                      />
-                    </div>
-                    <div className="text-[#9aabb8] text-xs mt-1">{result.categoryScores.behavioral}%</div>
-                  </div>
-                  <div>
-                    <div className="text-[#9aabb8] text-xs mb-1">Communication</div>
-                    <div className="h-1.5 bg-[#2a3a4a] rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-[#FF6B6B] rounded-full transition-all"
-                        style={{ width: `${result.categoryScores.communication}%` }}
-                      />
-                    </div>
-                    <div className="text-[#9aabb8] text-xs mt-1">{result.categoryScores.communication}%</div>
-                  </div>
-                  <div>
-                    <div className="text-[#9aabb8] text-xs mb-1">Confidence</div>
-                    <div className="h-1.5 bg-[#2a3a4a] rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-[#FF6B6B] rounded-full transition-all"
-                        style={{ width: `${result.categoryScores.confidence}%` }}
-                      />
-                    </div>
-                    <div className="text-[#9aabb8] text-xs mt-1">{result.categoryScores.confidence}%</div>
-                  </div>
-                </div>
+                )}
 
                 <div className="mt-4 flex items-center justify-end">
                   <EyeIcon className="h-4 w-4 text-[#4a5a6a] group-hover:text-[#FF6B6B] transition-colors" />
@@ -543,7 +607,7 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {/* Result Detail Modal */}
+      {/* Result Detail Modal - Simplified version to avoid duplication */}
       {showModal && selectedResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="relative max-w-4xl w-full max-h-[90vh] overflow-y-auto rounded-2xl bg-[#1B2838] border border-[#2a3a4a] shadow-2xl">
@@ -551,7 +615,7 @@ export default function ResultsPage() {
             <div className="sticky top-0 bg-[#1B2838] border-b border-[#2a3a4a] p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h2 className="font-heading text-xl font-bold text-[#FFF5F2]">
                       {selectedResult.sessionTitle}
                     </h2>
@@ -560,7 +624,7 @@ export default function ResultsPage() {
                       {getStatusBadge(selectedResult.status).text}
                     </span>
                   </div>
-                  <div className="flex gap-4 text-sm text-[#9aabb8]">
+                  <div className="flex gap-4 text-sm text-[#9aabb8] flex-wrap">
                     <div className="flex items-center gap-1">
                       <CalendarIcon className="h-4 w-4" />
                       <span>{new Date(selectedResult.date).toLocaleString()}</span>
@@ -568,6 +632,10 @@ export default function ResultsPage() {
                     <div className="flex items-center gap-1">
                       <ClockIcon className="h-4 w-4" />
                       <span>{selectedResult.duration} minutes</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <BookOpenIcon className="h-4 w-4" />
+                      <span>{selectedResult.category}</span>
                     </div>
                   </div>
                 </div>
@@ -590,62 +658,39 @@ export default function ResultsPage() {
                 <p className="text-[#9aabb8]">Overall Performance Score</p>
               </div>
 
-              {/* Category Scores */}
-              <div>
-                <h3 className="font-heading font-bold text-[#FF6B6B] mb-3">Category Breakdown</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  {Object.entries(selectedResult.categoryScores).map(([category, score]) => (
-                    <div key={category} className="p-3 rounded-xl bg-[#0D1B2A]">
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-[#9aabb8] capitalize">{category}</span>
-                        <span className={`font-bold ${getScoreColor(score)}`}>{score}%</span>
-                      </div>
-                      <div className="h-1.5 bg-[#2a3a4a] rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-[#FF6B6B] rounded-full transition-all"
-                          style={{ width: `${score}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
               {/* Strengths */}
-              <div>
-                <h3 className="font-heading font-bold text-green-400 mb-3 flex items-center gap-2">
-                  <CheckCircleIcon className="h-5 w-5" />
-                  Key Strengths
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedResult.strengths.map((strength, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1.5 rounded-lg bg-green-400/10 border border-green-400/20 text-green-400 text-sm"
-                    >
-                      {strength}
-                    </span>
-                  ))}
+              {selectedResult.strengths && selectedResult.strengths.length > 0 && (
+                <div>
+                  <h3 className="font-heading font-bold text-green-400 mb-3 flex items-center gap-2">
+                    <CheckCircleIcon className="h-5 w-5" />
+                    Key Strengths
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedResult.strengths.map((strength, idx) => (
+                      <span key={idx} className="px-3 py-1.5 rounded-lg bg-green-400/10 border border-green-400/20 text-green-400 text-sm">
+                        {strength}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Areas for Improvement */}
-              <div>
-                <h3 className="font-heading font-bold text-yellow-400 mb-3 flex items-center gap-2">
-                  <ArrowTrendingUpIcon className="h-5 w-5" />
-                  Areas for Improvement
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedResult.improvements.map((improvement, idx) => (
-                    <span
-                      key={idx}
-                      className="px-3 py-1.5 rounded-lg bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 text-sm"
-                    >
-                      {improvement}
-                    </span>
-                  ))}
+              {selectedResult.improvements && selectedResult.improvements.length > 0 && (
+                <div>
+                  <h3 className="font-heading font-bold text-yellow-400 mb-3 flex items-center gap-2">
+                    <ArrowTrendingUpIcon className="h-5 w-5" />
+                    Areas for Improvement
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedResult.improvements.map((improvement, idx) => (
+                      <span key={idx} className="px-3 py-1.5 rounded-lg bg-yellow-400/10 border border-yellow-400/20 text-yellow-400 text-sm">
+                        {improvement}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* AI Feedback */}
               <div>

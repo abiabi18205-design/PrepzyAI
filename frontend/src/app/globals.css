@@ -6,13 +6,13 @@
   --font-body: "DM Sans", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  --color-ink: #0D1B2A;
-  --color-surface: #1B2838;
-  --color-card: #1B2838;
-  --color-border: #2a3a4a;
+  --color-ink: #FFFFFF;
+  --color-surface: #F8FAFC;
+  --color-card: #FFFFFF;
+  --color-border: #E2E8F0;
   --color-accent: #FF6B6B;
-  --color-muted: #9aabb8;
-  --color-light: #FFF5F2;
+  --color-muted: #64748B;
+  --color-light: #0F172A;
 }
 
 * {
