@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { registerUser, saveToken } from "@/lib/api";
 
@@ -13,6 +14,7 @@ type FormState = {
 };
 
 export default function SignupPage() {
+  const router = useRouter();
   const [form, setForm] = useState<FormState>({
     name: "",
     email: "",
@@ -56,7 +58,8 @@ export default function SignupPage() {
     try {
       const data = await registerUser(form.name, form.email, form.password);
       saveToken(data.data.token);
-      setSubmitted(true);
+      localStorage.setItem("user", JSON.stringify(data.data.user));
+      router.push("/onboarding");
     } catch (err: unknown) {
       if (err instanceof Error) setError(err.message);
       else setError("Something went wrong. Please try again.");

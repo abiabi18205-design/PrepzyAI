@@ -17,7 +17,8 @@ import {
   LightBulbIcon,
   ArrowPathIcon,
   ChatBubbleLeftRightIcon,
-  MicrophoneIcon
+  MicrophoneIcon,
+  StopIcon,
 } from "@heroicons/react/24/outline";
 
 interface Question {
@@ -53,7 +54,7 @@ interface Evaluation {
   overallScore: number;
   criteriaScores?: CriteriaScores;
   confidenceScore?: number;
-    confidenceAnalysis?: string;  
+  confidenceAnalysis?: string;
   feedback: string;
   improvementTip?: string;
   whatWentWell?: string[];
@@ -90,8 +91,25 @@ export default function PracticeSessionPage() {
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [showSampleAnswer, setShowSampleAnswer] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
+
+  // ── Voice recording state ─────────────────────────────────────────────────
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
+  const [voiceError, setVoiceError] = useState("");
+  const [transcript, setTranscript] = useState("");
+  const recognitionRef = useRef<any>(null);
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Check Web Speech API support
+  useEffect(() => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      setVoiceSupported(true);
+    }
+  }, []);
 
   // Start session timer
   useEffect(() => {
@@ -125,11 +143,94 @@ export default function PracticeSessionPage() {
     }
   }, [currentIndex, currentEval, evaluating]);
 
+  // Stop recording when eval appears
+  useEffect(() => {
+    if (currentEval && isRecording) {
+      stopRecording();
+    }
+  }, [currentEval]);
+
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
+
+  // ── Voice recording functions ─────────────────────────────────────────────
+
+  const startRecording = () => {
+    setVoiceError("");
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setVoiceError("Voice input is not supported in this browser. Use Chrome.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    let finalTranscript = userAnswer ? userAnswer + " " : "";
+
+    recognition.onresult = (event: any) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += t + " ";
+        } else {
+          interim = t;
+        }
+      }
+      // Show live transcript in textarea
+      setUserAnswer(finalTranscript + interim);
+      setTranscript(finalTranscript + interim);
+    };
+
+    recognition.onerror = (event: any) => {
+      if (event.error === "not-allowed") {
+        setVoiceError("Microphone access denied. Please allow microphone in browser settings.");
+      } else if (event.error === "no-speech") {
+        setVoiceError("No speech detected. Please try again.");
+      } else {
+        setVoiceError(`Voice error: ${event.error}`);
+      }
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      // Only update if we have a final transcript
+      if (finalTranscript.trim()) {
+        setUserAnswer(finalTranscript.trim());
+      }
+      setIsRecording(false);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  };
+
+  const stopRecording = () => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+    setIsRecording(false);
+  };
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  // ── Session logic ─────────────────────────────────────────────────────────
 
   const currentQuestion = session?.questions[currentIndex];
   const progress = session ? ((currentIndex) / session.questions.length) * 100 : 0;
@@ -137,6 +238,7 @@ export default function PracticeSessionPage() {
 
   const submitAnswer = async () => {
     if (!userAnswer.trim() || !currentQuestion || evaluating) return;
+    if (isRecording) stopRecording();
 
     setEvaluating(true);
     try {
@@ -167,12 +269,14 @@ export default function PracticeSessionPage() {
 
   const nextQuestion = () => {
     if (!session) return;
+    if (isRecording) stopRecording();
     if (currentIndex + 1 < session.questions.length) {
       setCurrentIndex((i) => i + 1);
       setUserAnswer("");
       setCurrentEval(null);
       setShowSampleAnswer(false);
       setShowFollowUp(false);
+      setVoiceError("");
     } else {
       completeSession();
     }
@@ -180,18 +284,21 @@ export default function PracticeSessionPage() {
 
   const skipQuestion = () => {
     if (!session) return;
+    if (isRecording) stopRecording();
     if (currentIndex + 1 < session.questions.length) {
       setCurrentIndex((i) => i + 1);
       setUserAnswer("");
       setCurrentEval(null);
       setShowSampleAnswer(false);
       setShowFollowUp(false);
+      setVoiceError("");
     } else {
       completeSession();
     }
   };
 
   const completeSession = async () => {
+    if (isRecording) stopRecording();
     setCompleting(true);
     if (timerRef.current) clearInterval(timerRef.current);
 
@@ -278,7 +385,6 @@ export default function PracticeSessionPage() {
     );
   }
 
-  // ── Completing overlay ────────────────────────────────────────────────────
   if (completing) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -291,7 +397,6 @@ export default function PracticeSessionPage() {
     );
   }
 
-  // ── Exit confirm modal ────────────────────────────────────────────────────
   if (showExitConfirm) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
@@ -388,22 +493,66 @@ export default function PracticeSessionPage() {
       {/* Answer Section */}
       {!currentEval ? (
         <div className="mb-6">
-          <label className="block text-sm font-medium text-[#9aabb8] mb-2">
-            Your Answer
-          </label>
-          <textarea
-            ref={textareaRef}
-            value={userAnswer}
-            onChange={(e) => setUserAnswer(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && e.ctrlKey) submitAnswer();
-            }}
-            placeholder="Type your answer here... (Ctrl+Enter to submit)"
-            rows={6}
-            disabled={evaluating}
-            className="w-full p-4 rounded-xl bg-[#1B2838] border border-[#2a3a4a] text-[#FFF5F2] placeholder-[#4a5a6a] focus:border-[#FF6B6B]/40 outline-none transition-colors resize-none font-body text-sm leading-relaxed disabled:opacity-60"
-          />
-          <div className="flex items-center justify-between mt-3">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-[#9aabb8]">
+              Your Answer
+            </label>
+            {/* Voice input mode indicator */}
+            {voiceSupported && (
+              <div className="flex items-center gap-2">
+                {isRecording && (
+                  <span className="flex items-center gap-1.5 text-xs text-red-400 font-mono">
+                    <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                    Listening...
+                  </span>
+                )}
+                <span className="text-[#4a5a6a] text-xs">Type or speak</span>
+              </div>
+            )}
+          </div>
+
+          {/* Textarea */}
+          <div className="relative">
+            <textarea
+              ref={textareaRef}
+              value={userAnswer}
+              onChange={(e) => setUserAnswer(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && e.ctrlKey) submitAnswer();
+              }}
+              placeholder={
+                isRecording
+                  ? "🎤 Listening... speak your answer"
+                  : "Type your answer here or click the mic to speak... (Ctrl+Enter to submit)"
+              }
+              rows={6}
+              disabled={evaluating}
+              className={`w-full p-4 rounded-xl bg-[#1B2838] border text-[#FFF5F2] placeholder-[#4a5a6a] outline-none transition-colors resize-none font-body text-sm leading-relaxed disabled:opacity-60 ${
+                isRecording
+                  ? "border-red-400/40 bg-red-400/5"
+                  : "border-[#2a3a4a] focus:border-[#FF6B6B]/40"
+              }`}
+            />
+
+            {/* Live recording pulse overlay */}
+            {isRecording && (
+              <div className="absolute bottom-3 right-3 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            )}
+          </div>
+
+          {/* Voice error */}
+          {voiceError && (
+            <p className="mt-2 text-xs text-red-400 flex items-center gap-1">
+              ⚠️ {voiceError}
+            </p>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex items-center justify-between mt-3 gap-3">
             <button
               onClick={skipQuestion}
               disabled={evaluating}
@@ -411,27 +560,64 @@ export default function PracticeSessionPage() {
             >
               Skip question →
             </button>
-            <button
-              onClick={submitAnswer}
-              disabled={!userAnswer.trim() || evaluating}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FF6B6B] text-[#0D1B2A] font-heading font-bold text-sm hover:bg-[#FFA07A] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {evaluating ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#0D1B2A]" />
-                  Evaluating...
-                </>
-              ) : (
-                <>
-                  <PaperAirplaneIcon className="h-4 w-4" />
-                  Submit Answer
-                </>
+
+            <div className="flex items-center gap-2">
+              {/* Mic Button */}
+              {voiceSupported && (
+                <button
+                  onClick={toggleRecording}
+                  disabled={evaluating}
+                  title={isRecording ? "Stop recording" : "Start voice input"}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border font-heading font-bold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isRecording
+                      ? "bg-red-500/20 border-red-500/40 text-red-400 hover:bg-red-500/30"
+                      : "bg-[#1B2838] border-[#2a3a4a] text-[#9aabb8] hover:border-[#FF6B6B]/40 hover:text-[#FF6B6B]"
+                  }`}
+                >
+                  {isRecording ? (
+                    <>
+                      <StopIcon className="h-4 w-4" />
+                      Stop
+                    </>
+                  ) : (
+                    <>
+                      <MicrophoneIcon className="h-4 w-4" />
+                      Speak
+                    </>
+                  )}
+                </button>
               )}
-            </button>
+
+              {/* Submit Button */}
+              <button
+                onClick={submitAnswer}
+                disabled={!userAnswer.trim() || evaluating}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#FF6B6B] text-[#0D1B2A] font-heading font-bold text-sm hover:bg-[#FFA07A] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {evaluating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#0D1B2A]" />
+                    Evaluating...
+                  </>
+                ) : (
+                  <>
+                    <PaperAirplaneIcon className="h-4 w-4" />
+                    Submit Answer
+                  </>
+                )}
+              </button>
+            </div>
           </div>
+
+          {/* Voice not supported notice */}
+          {!voiceSupported && (
+            <p className="mt-2 text-xs text-[#4a5a6a] text-center">
+              💡 Voice input requires Chrome browser
+            </p>
+          )}
         </div>
       ) : (
-        /* Enhanced Feedback Card */
+        /* Feedback Card */
         <div className="mb-6 p-6 rounded-2xl border border-[#FF6B6B]/20 bg-gradient-to-br from-[#FF6B6B]/5 to-transparent">
           <div className="flex items-center gap-2 mb-5">
             <SparklesIcon className="h-5 w-5 text-[#FF6B6B]" />
@@ -459,28 +645,7 @@ export default function PracticeSessionPage() {
             </div>
           </div>
 
-          {/* Confidence Score (New) */}
-          {currentEval.confidenceScore !== undefined && (
-            <div className="mb-4 p-3 rounded-xl bg-[#0D1B2A] border border-[#2a3a4a]">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-[#9aabb8] text-xs font-mono flex items-center gap-1">
-                  <ChatBubbleLeftRightIcon className="h-3 w-3" />
-                  Confidence Score
-                </p>
-                <span className={`text-sm font-bold ${getScoreColor(currentEval.confidenceScore)}`}>
-                  {currentEval.confidenceScore}/10
-                </span>
-              </div>
-              <div className="h-1.5 bg-[#2a3a4a] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#FF6B6B] rounded-full transition-all"
-                  style={{ width: `${(currentEval.confidenceScore / 10) * 100}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Word Count Analysis (New) */}
+          {/* Word Count */}
           {currentEval.lengthAnalysis && (
             <div className="mb-4 p-3 rounded-xl bg-[#0D1B2A] border border-[#2a3a4a]">
               <div className="flex items-center justify-between">
@@ -501,7 +666,7 @@ export default function PracticeSessionPage() {
             </p>
           </div>
 
-          {/* Criteria Scores (New) */}
+          {/* Criteria Scores */}
           {currentEval.criteriaScores && (
             <div className="mb-4 p-3 rounded-xl bg-[#0D1B2A] border border-[#2a3a4a]">
               <p className="text-[#9aabb8] text-xs font-mono mb-3 flex items-center gap-1">
@@ -527,7 +692,7 @@ export default function PracticeSessionPage() {
             </div>
           )}
 
-          {/* What Went Well (New) */}
+          {/* What Went Well */}
           {currentEval.whatWentWell && currentEval.whatWentWell.length > 0 && (
             <div className="mb-4 p-3 rounded-xl bg-green-400/5 border border-green-400/10">
               <p className="text-green-400 text-xs font-mono mb-2 flex items-center gap-1">
@@ -537,15 +702,14 @@ export default function PracticeSessionPage() {
               <ul className="space-y-1">
                 {currentEval.whatWentWell.map((item, idx) => (
                   <li key={idx} className="text-[#9aabb8] text-sm flex items-start gap-2">
-                    <span className="text-green-400">•</span>
-                    {item}
+                    <span className="text-green-400">•</span>{item}
                   </li>
                 ))}
               </ul>
             </div>
           )}
 
-          {/* What to Improve (New) */}
+          {/* What to Improve */}
           {currentEval.whatToImprove && currentEval.whatToImprove.length > 0 && (
             <div className="mb-4 p-3 rounded-xl bg-yellow-400/5 border border-yellow-400/10">
               <p className="text-yellow-400 text-xs font-mono mb-2 flex items-center gap-1">
@@ -555,8 +719,7 @@ export default function PracticeSessionPage() {
               <ul className="space-y-1">
                 {currentEval.whatToImprove.map((item, idx) => (
                   <li key={idx} className="text-[#9aabb8] text-sm flex items-start gap-2">
-                    <span className="text-yellow-400">•</span>
-                    {item}
+                    <span className="text-yellow-400">•</span>{item}
                   </li>
                 ))}
               </ul>
@@ -580,84 +743,62 @@ export default function PracticeSessionPage() {
             </div>
           )}
 
-          {/* Sample Answer (New - Collapsible) */}
-          {/* {currentEval.sampleAnswer && (
+          {/* Sample Answer */}
+          {currentEval.sampleAnswer && (
             <div className="mb-4">
               <button
                 onClick={() => setShowSampleAnswer(!showSampleAnswer)}
                 className="flex items-center gap-2 text-xs font-mono text-[#FF6B6B] hover:text-[#FFA07A] transition-colors"
               >
                 <span>{showSampleAnswer ? "▼" : "▶"}</span>
-                View Sample Answer
+                🎤 View Sample Answer (How to say it)
               </button>
               {showSampleAnswer && (
-                <div className="mt-2 p-3 rounded-xl bg-[#0D1B2A] border border-[#2a3a4a]">
-                  <p className="text-[#9aabb8] text-sm leading-relaxed">{currentEval.sampleAnswer}</p>
+                <div className="mt-2 p-4 rounded-xl bg-gradient-to-r from-[#FF6B6B]/5 to-transparent border border-[#FF6B6B]/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MicrophoneIcon className="h-4 w-4 text-[#FF6B6B]" />
+                    <span className="text-xs font-mono text-[#FF6B6B]">SPEAK LIKE THIS</span>
+                  </div>
+                  <p className="text-[#FFF5F2] text-sm leading-relaxed italic">
+                    "{currentEval.sampleAnswer}"
+                  </p>
+                  <p className="mt-2 text-xs text-[#9aabb8]">💡 Tip: Practice saying this out loud</p>
                 </div>
               )}
             </div>
-          )} */}
+          )}
 
-          {currentEval.sampleAnswer && (
-  <div className="mb-4">
-    <button
-      onClick={() => setShowSampleAnswer(!showSampleAnswer)}
-      className="flex items-center gap-2 text-xs font-mono text-[#FF6B6B] hover:text-[#FFA07A] transition-colors"
-    >
-      <span>{showSampleAnswer ? "▼" : "▶"}</span>
-      🎤 View Sample Answer (How to say it)
-    </button>
-    {showSampleAnswer && (
-      <div className="mt-2 p-4 rounded-xl bg-gradient-to-r from-[#FF6B6B]/5 to-transparent border border-[#FF6B6B]/20">
-        <div className="flex items-center gap-2 mb-2">
-          <MicrophoneIcon className="h-4 w-4 text-[#FF6B6B]" />
-          <span className="text-xs font-mono text-[#FF6B6B]">SPEAK LIKE THIS</span>
-        </div>
-        <p className="text-[#FFF5F2] text-sm leading-relaxed italic">
-          "{currentEval.sampleAnswer}"
-        </p>
-        <div className="mt-2 flex items-center gap-2 text-xs text-[#9aabb8]">
-          <span>💡 Tip: Practice saying this out loud</span>
-        </div>
-      </div>
-    )}
-  </div>
-)}
-{/* Confidence Analysis - More Detailed */}
-{currentEval.confidenceScore !== undefined && (
-  <div className="mb-4 p-3 rounded-xl bg-[#0D1B2A] border border-[#2a3a4a]">
-    <div className="flex items-center justify-between mb-2">
-      <p className="text-[#9aabb8] text-xs font-mono flex items-center gap-1">
-        <ChatBubbleLeftRightIcon className="h-3 w-3" />
-        Confidence Score
-      </p>
-      <span className={`text-sm font-bold ${getScoreColor(currentEval.confidenceScore * 10)}`}>
-        {currentEval.confidenceScore}/10
-      </span>
-    </div>
-    <div className="h-1.5 bg-[#2a3a4a] rounded-full overflow-hidden mb-2">
-      <div
-        className="h-full bg-gradient-to-r from-yellow-400 to-green-400 rounded-full transition-all"
-        style={{ width: `${(currentEval.confidenceScore / 10) * 100}%` }}
-      />
-    </div>
-    {currentEval.confidenceAnalysis && (
-      <p className="text-[#9aabb8] text-xs mt-2 italic">
-        📊 {currentEval.confidenceAnalysis}
-      </p>
-    )}
-    <div className="mt-2 flex gap-2 text-xs">
-      {currentEval.confidenceScore <= 3 && (
-        <span className="text-yellow-400">⚠️ Try to reduce hesitation words like "um", "like", "I think"</span>
-      )}
-      {currentEval.confidenceScore >= 7 && (
-        <span className="text-green-400">✓ Great confidence! Your assertive language shows expertise.</span>
-      )}
-    </div>
-  </div>
-)}
+          {/* Confidence Analysis */}
+          {currentEval.confidenceScore !== undefined && (
+            <div className="mb-4 p-3 rounded-xl bg-[#0D1B2A] border border-[#2a3a4a]">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[#9aabb8] text-xs font-mono flex items-center gap-1">
+                  <ChatBubbleLeftRightIcon className="h-3 w-3" />
+                  Confidence Score
+                </p>
+                <span className={`text-sm font-bold ${getScoreColor(currentEval.confidenceScore)}`}>
+                  {currentEval.confidenceScore}/10
+                </span>
+              </div>
+              <div className="h-1.5 bg-[#2a3a4a] rounded-full overflow-hidden mb-2">
+                <div
+                  className="h-full bg-gradient-to-r from-yellow-400 to-green-400 rounded-full transition-all"
+                  style={{ width: `${(currentEval.confidenceScore / 10) * 100}%` }}
+                />
+              </div>
+              {currentEval.confidenceAnalysis && (
+                <p className="text-[#9aabb8] text-xs mt-2 italic">📊 {currentEval.confidenceAnalysis}</p>
+              )}
+              {currentEval.confidenceScore <= 3 && (
+                <p className="text-yellow-400 text-xs mt-1">⚠️ Try to reduce hesitation words like "um", "like", "I think"</p>
+              )}
+              {currentEval.confidenceScore >= 7 && (
+                <p className="text-green-400 text-xs mt-1">✓ Great confidence! Your assertive language shows expertise.</p>
+              )}
+            </div>
+          )}
 
-          {/* Follow-up Questions (New - Collapsible) */}
+          {/* Follow-up Questions */}
           {currentEval.followUpQuestions && currentEval.followUpQuestions.length > 0 && (
             <div className="mb-4">
               <button
@@ -672,8 +813,7 @@ export default function PracticeSessionPage() {
                   <ul className="space-y-2">
                     {currentEval.followUpQuestions.map((q, idx) => (
                       <li key={idx} className="text-[#9aabb8] text-sm flex items-start gap-2">
-                        <span className="text-[#FF6B6B]">Q{idx + 1}:</span>
-                        {q}
+                        <span className="text-[#FF6B6B]">Q{idx + 1}:</span>{q}
                       </li>
                     ))}
                   </ul>
@@ -703,15 +843,9 @@ export default function PracticeSessionPage() {
               className="flex-1 flex items-center justify-center gap-1 py-2.5 rounded-xl bg-[#FF6B6B] text-[#0D1B2A] font-heading font-bold text-sm hover:bg-[#FFA07A] transition-all"
             >
               {currentIndex + 1 === session.questions.length ? (
-                <>
-                  <CheckCircleIcon className="h-4 w-4" />
-                  Finish & Get Results
-                </>
+                <><CheckCircleIcon className="h-4 w-4" /> Finish & Get Results</>
               ) : (
-                <>
-                  Next Question
-                  <ChevronRightIcon className="h-4 w-4" />
-                </>
+                <>Next Question <ChevronRightIcon className="h-4 w-4" /></>
               )}
             </button>
           </div>
@@ -732,6 +866,7 @@ export default function PracticeSessionPage() {
                 setCurrentEval(answers[q.id]?.evaluation || null);
                 setShowSampleAnswer(false);
                 setShowFollowUp(false);
+                if (isRecording) stopRecording();
               }}
               className={`w-8 h-8 rounded-lg text-xs font-mono font-bold transition-all ${
                 isCurrent

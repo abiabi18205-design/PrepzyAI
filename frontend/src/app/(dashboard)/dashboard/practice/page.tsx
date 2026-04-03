@@ -14,10 +14,19 @@ import {
   ArrowPathIcon,
   PlayIcon,
   BookOpenIcon,
-  PlusIcon,
-  TrashIcon,
-  CheckCircleIcon,
+  SparklesIcon,
 } from "@heroicons/react/24/outline";
+
+interface PracticeSession {
+  id: string;
+  title: string;
+  description: string;
+  duration: number;
+  questions: number;
+  difficulty: "Easy" | "Medium" | "Hard" | "Mixed";
+  category: string;
+  icon: any;
+}
 
 interface Category {
   id: string;
@@ -27,139 +36,198 @@ interface Category {
   color: string;
 }
 
-interface SelectedJob {
-  id: string;
-  categoryId: string;
-  categoryName: string;
-  questionsCount: number;
-}
-
-const categories: Category[] = [
+const SESSION_TEMPLATES: PracticeSession[] = [
   {
-    id: "technical",
-    name: "Technical",
+    id: "technical__Medium__5",
+    title: "Frontend Developer Interview",
+    description: "Practice with React, JavaScript, CSS, and frontend architecture questions",
+    duration: 45,
+    questions: 5,
+    difficulty: "Medium",
+    category: "technical",
     icon: ComputerDesktopIcon,
-    description: "Programming, algorithms, system design, and tech stack questions",
-    color: "from-blue-500/20 to-blue-600/5",
   },
   {
-    id: "behavioral",
-    name: "Behavioral",
+    id: "behavioral__Easy__5",
+    title: "Behavioral Interview",
+    description: "Common behavioral questions using the STAR method",
+    duration: 30,
+    questions: 5,
+    difficulty: "Easy",
+    category: "behavioral",
     icon: MicrophoneIcon,
-    description: "STAR method, leadership, teamwork, and conflict resolution",
-    color: "from-green-500/20 to-green-600/5",
   },
   {
-    id: "hr",
-    name: "HR",
-    icon: BuildingOfficeIcon,
-    description: "Culture fit, career goals, and company-specific questions",
-    color: "from-purple-500/20 to-purple-600/5",
-  },
-  {
-    id: "dsa",
-    name: "DSA",
-    icon: AcademicCapIcon,
-    description: "Data structures, algorithms, and problem-solving",
-    color: "from-yellow-500/20 to-yellow-600/5",
-  },
-  {
-    id: "system-design",
-    name: "System Design",
+    id: "system-design__Hard__3",
+    title: "System Design Interview",
+    description: "Design scalable systems like URL shortener, Twitter, etc.",
+    duration: 60,
+    questions: 3,
+    difficulty: "Hard",
+    category: "system-design",
     icon: ChartBarIcon,
-    description: "Scalability, architecture, and distributed systems",
-    color: "from-red-500/20 to-red-600/5",
+  },
+  {
+    id: "hr__Easy__5",
+    title: "HR & Culture Fit",
+    description: "Questions about company culture, career goals, and work style",
+    duration: 25,
+    questions: 5,
+    difficulty: "Easy",
+    category: "hr",
+    icon: BuildingOfficeIcon,
+  },
+  {
+    id: "dsa__Hard__4",
+    title: "Data Structures & Algorithms",
+    description: "Practice with arrays, trees, graphs, and dynamic programming",
+    duration: 60,
+    questions: 4,
+    difficulty: "Hard",
+    category: "dsa",
+    icon: AcademicCapIcon,
+  },
+  {
+    id: "technical__Medium__7",
+    title: "Backend Developer Interview",
+    description: "Database design, API architecture, and backend patterns",
+    duration: 50,
+    questions: 7,
+    difficulty: "Medium",
+    category: "technical",
+    icon: ComputerDesktopIcon,
   },
 ];
 
-const difficulties = [
-  { level: "Easy", color: "text-green-400", bgColor: "bg-green-400/10", borderColor: "border-green-400/20" },
-  { level: "Medium", color: "text-yellow-400", bgColor: "bg-yellow-400/10", borderColor: "border-yellow-400/20" },
-  { level: "Hard", color: "text-red-400", bgColor: "bg-red-400/10", borderColor: "border-red-400/20" },
-];
+// Map onboarding type → category id
+const TYPE_TO_CATEGORY: Record<string, string> = {
+  technical: "technical",
+  hr: "hr",
+  behavioral: "behavioral",
+  dsa: "dsa",
+  "system design": "system-design",
+};
 
-const QUESTIONS_PER_JOB = 3; // Each job gets exactly 3 questions
+// Map onboarding level → difficulty
+const LEVEL_TO_DIFFICULTY: Record<string, string> = {
+  beginner: "Easy",
+  intermediate: "Medium",
+  advanced: "Hard",
+};
 
 export default function PracticePage() {
   const router = useRouter();
-  const [selectedJobs, setSelectedJobs] = useState<SelectedJob[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [selectedDifficulty, setSelectedDifficulty] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
+  const [filteredSessions, setFilteredSessions] = useState<PracticeSession[]>(SESSION_TEMPLATES);
   const [error, setError] = useState("");
-  const [showJobSelector, setShowJobSelector] = useState(false);
+  const [onboardingBanner, setOnboardingBanner] = useState<string | null>(null);
 
-  // Add a job to the list
-  const addJob = (categoryId: string, categoryName: string) => {
-    // Check if already added
-    if (selectedJobs.some(job => job.categoryId === categoryId)) {
-      setError(`${categoryName} is already added`);
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-    
-    setSelectedJobs([
-      ...selectedJobs,
-      {
-        id: `${categoryId}-${Date.now()}`,
-        categoryId,
-        categoryName,
-        questionsCount: QUESTIONS_PER_JOB,
-      }
-    ]);
-    setShowJobSelector(false);
-  };
+  const categories: Category[] = [
+    {
+      id: "technical",
+      name: "Technical",
+      icon: ComputerDesktopIcon,
+      description: "Programming, algorithms, system design, and tech stack questions",
+      color: "from-blue-500/20 to-blue-600/5",
+    },
+    {
+      id: "behavioral",
+      name: "Behavioral",
+      icon: MicrophoneIcon,
+      description: "STAR method, leadership, teamwork, and conflict resolution",
+      color: "from-green-500/20 to-green-600/5",
+    },
+    {
+      id: "hr",
+      name: "HR",
+      icon: BuildingOfficeIcon,
+      description: "Culture fit, career goals, and company-specific questions",
+      color: "from-purple-500/20 to-purple-600/5",
+    },
+    {
+      id: "dsa",
+      name: "DSA",
+      icon: AcademicCapIcon,
+      description: "Data structures, algorithms, and problem-solving",
+      color: "from-yellow-500/20 to-yellow-600/5",
+    },
+    {
+      id: "system-design",
+      name: "System Design",
+      icon: ChartBarIcon,
+      description: "Scalability, architecture, and distributed systems",
+      color: "from-red-500/20 to-red-600/5",
+    },
+  ];
 
-  // Remove a job from the list
-  const removeJob = (id: string) => {
-    setSelectedJobs(selectedJobs.filter(job => job.id !== id));
-  };
+  const difficulties = [
+    { level: "Easy", color: "text-green-400", bgColor: "bg-green-400/10", borderColor: "border-green-400/20" },
+    { level: "Medium", color: "text-yellow-400", bgColor: "bg-yellow-400/10", borderColor: "border-yellow-400/20" },
+    { level: "Hard", color: "text-red-400", bgColor: "bg-red-400/10", borderColor: "border-red-400/20" },
+  ];
 
-  // Calculate total questions
-  const totalQuestions = selectedJobs.length * QUESTIONS_PER_JOB;
-
-  // Start multi-category session
-  const startMultiSession = async () => {
-    if (selectedJobs.length === 0) {
-      setError("Please select at least one job role");
-      return;
-    }
-
-    setLoading(true);
-    setError("");
-
+  // ✅ Read onboarding preferences on mount and apply filters
+  useEffect(() => {
     try {
-      const categories = selectedJobs.map(job => job.categoryId);
-      
-      const res = await api.post("/api/practice/multi-session", {
-        categories,
-        questionsPerCategory: QUESTIONS_PER_JOB,
-        difficulty: selectedDifficulty || "Mixed",
-      });
+      const saved = localStorage.getItem("onboarding");
+      if (saved) {
+        const prefs = JSON.parse(saved);
+        const parts: string[] = [];
 
-      if (res.data.success) {
-        const sessionId = res.data.data.session.id;
-        router.push(`/dashboard/practice/${sessionId}`);
+        // Apply difficulty from level
+        if (prefs.level) {
+          const difficulty = LEVEL_TO_DIFFICULTY[prefs.level.toLowerCase()];
+          if (difficulty) {
+            setSelectedDifficulty(difficulty);
+            parts.push(difficulty);
+          }
+        }
+
+        // Apply category from type (skip if Mixed)
+        if (prefs.type && prefs.type.toLowerCase() !== "mixed") {
+          const categoryId = TYPE_TO_CATEGORY[prefs.type.toLowerCase()];
+          if (categoryId) {
+            setSelectedCategory(categoryId);
+            const categoryName = categories.find((c) => c.id === categoryId)?.name || prefs.type;
+            parts.unshift(categoryName);
+          }
+        }
+
+        if (parts.length > 0) {
+          setOnboardingBanner(`Filtered by your preferences: ${parts.join(" · ")}`);
+        }
       }
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message ||
-          "Failed to start session. Please try again."
-      );
-    } finally {
-      setLoading(false);
+    } catch {
+      // ignore
     }
-  };
+  }, []);
 
-  // Start single category session (backward compatible)
-  const startSingleSession = async (categoryId: string) => {
-    setLoading(true);
+  // Filter sessions whenever category or difficulty changes
+  useEffect(() => {
+    let filtered = SESSION_TEMPLATES;
+    if (selectedCategory) {
+      filtered = filtered.filter((s) => s.category === selectedCategory);
+    }
+    if (selectedDifficulty) {
+      filtered = filtered.filter((s) => s.difficulty === selectedDifficulty);
+    }
+    setFilteredSessions(filtered);
+  }, [selectedCategory, selectedDifficulty]);
+
+  const startSession = async (templateId: string) => {
     setError("");
+    setLoadingSessionId(templateId);
+
+    const [category, difficulty, countStr] = templateId.split("__");
+    const questionCount = parseInt(countStr) || 5;
 
     try {
       const res = await api.post("/api/practice/session", {
-        category: categoryId,
-        difficulty: selectedDifficulty || "Mixed",
-        questionCount: QUESTIONS_PER_JOB,
+        category,
+        difficulty,
+        questionCount,
       });
 
       if (res.data.success) {
@@ -171,13 +239,33 @@ export default function PracticePage() {
         err.response?.data?.message ||
           "Failed to start session. Make sure questions exist for this category."
       );
-    } finally {
-      setLoading(false);
+      setLoadingSessionId(null);
     }
   };
 
   const clearFilters = () => {
+    setSelectedCategory(null);
     setSelectedDifficulty(null);
+    setOnboardingBanner(null);
+    localStorage.removeItem("onboarding");
+  };
+
+  const getDifficultyColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "Easy": return "text-green-400";
+      case "Medium": return "text-yellow-400";
+      case "Hard": return "text-red-400";
+      default: return "text-gray-400";
+    }
+  };
+
+  const getDifficultyBgColor = (difficulty: string) => {
+    switch (difficulty) {
+      case "Easy": return "bg-green-400/10";
+      case "Medium": return "bg-yellow-400/10";
+      case "Hard": return "bg-red-400/10";
+      default: return "bg-gray-400/10";
+    }
   };
 
   return (
@@ -188,9 +276,25 @@ export default function PracticePage() {
           Practice Sessions
         </h1>
         <p className="text-[#9aabb8] font-body">
-          Select job roles to practice with {QUESTIONS_PER_JOB} questions each
+          Choose a practice session and start your interview preparation journey
         </p>
       </div>
+
+      {/* Onboarding Banner */}
+      {onboardingBanner && (
+        <div className="mb-6 p-4 rounded-xl bg-[#FF6B6B]/10 border border-[#FF6B6B]/20 text-[#FF6B6B] text-sm flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <SparklesIcon className="h-4 w-4 flex-shrink-0" />
+            {onboardingBanner}
+          </span>
+          <button
+            onClick={clearFilters}
+            className="ml-4 text-[#FF6B6B] hover:text-[#FFA07A] text-xs underline flex-shrink-0"
+          >
+            Reset filters
+          </button>
+        </div>
+      )}
 
       {/* Error Banner */}
       {error && (
@@ -200,102 +304,61 @@ export default function PracticePage() {
         </div>
       )}
 
-      {/* Loading Overlay */}
-      {loading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B6B] mx-auto mb-4" />
-            <p className="text-[#FFF5F2] font-heading font-bold">Creating your session...</p>
-            <p className="text-[#9aabb8] text-sm mt-2">Preparing {totalQuestions} questions</p>
-          </div>
-        </div>
-      )}
-
-      {/* Selected Jobs Summary */}
-      {selectedJobs.length > 0 && (
-        <div className="mb-6 p-4 rounded-2xl border border-[#FF6B6B]/20 bg-[#FF6B6B]/5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-heading font-bold text-[#FFF5F2] flex items-center gap-2">
-              <CheckCircleIcon className="h-5 w-5 text-[#FF6B6B]" />
-              Selected Jobs ({selectedJobs.length})
-            </h3>
-            <span className="text-[#FF6B6B] text-sm font-mono">
-              Total: {totalQuestions} questions
-            </span>
-          </div>
-          
-          <div className="flex flex-wrap gap-2 mb-4">
-            {selectedJobs.map((job) => (
-              <div
-                key={job.id}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#1B2838] border border-[#2a3a4a]"
-              >
-                <span className="text-[#FFF5F2] text-sm">{job.categoryName}</span>
-                <span className="text-[#9aabb8] text-xs">({job.questionsCount} qns)</span>
-                <button
-                  onClick={() => removeJob(job.id)}
-                  className="ml-1 p-0.5 rounded hover:bg-red-500/20 text-[#9aabb8] hover:text-red-400 transition-colors"
-                >
-                  <TrashIcon className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <button
-            onClick={() => setShowJobSelector(!showJobSelector)}
-            className="text-sm text-[#FF6B6B] hover:text-[#FFA07A] transition-colors flex items-center gap-1"
-          >
-            <PlusIcon className="h-4 w-4" />
-            Add another job role
-          </button>
-        </div>
-      )}
-
-      {/* Job Selector Dropdown */}
-      {showJobSelector && (
-        <div className="mb-6 p-4 rounded-2xl border border-[#2a3a4a] bg-[#1B2838]">
-          <h3 className="font-heading font-bold text-[#FFF5F2] mb-3">Select a Job Role</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {categories.map((category) => {
-              const isAlreadySelected = selectedJobs.some(job => job.categoryId === category.id);
-              const Icon = category.icon;
-              return (
-                <button
-                  key={category.id}
-                  onClick={() => addJob(category.id, category.name)}
-                  disabled={isAlreadySelected}
-                  className={`p-3 rounded-xl border transition-all text-left ${
-                    isAlreadySelected
-                      ? "border-green-500/30 bg-green-500/10 opacity-50 cursor-not-allowed"
-                      : "border-[#2a3a4a] bg-[#0D1B2A] hover:border-[#FF6B6B]/40 hover:bg-[#FF6B6B]/5"
-                  }`}
-                >
-                  <Icon className="h-5 w-5 text-[#FF6B6B] mb-2" />
-                  <p className="text-[#FFF5F2] text-sm font-medium">{category.name}</p>
-                  <p className="text-[#9aabb8] text-xs mt-1">{QUESTIONS_PER_JOB} questions</p>
-                  {isAlreadySelected && (
-                    <p className="text-green-400 text-xs mt-1">✓ Added</p>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-          <button
-            onClick={() => setShowJobSelector(false)}
-            className="mt-3 text-sm text-[#9aabb8] hover:text-[#FFF5F2] transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-
-      {/* Difficulty Filter */}
+      {/* Categories Grid */}
       <div className="mb-8">
         <h2 className="font-heading text-xl font-bold text-[#FFF5F2] mb-4">
-          Difficulty Level (Optional)
+          Select Category
         </h2>
-        <div className="flex gap-3 flex-wrap">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {categories.map((category) => {
+            const Icon = category.icon;
+            const isSelected = selectedCategory === category.id;
+            return (
+              <button
+                key={category.id}
+                onClick={() => {
+                  setSelectedCategory(isSelected ? null : category.id);
+                  setOnboardingBanner(null);
+                }}
+                className={`p-4 rounded-2xl border transition-all text-left group ${
+                  isSelected
+                    ? "border-[#FF6B6B] bg-[#FF6B6B]/10 shadow-lg shadow-[#FF6B6B]/10"
+                    : "border-[#2a3a4a] bg-[#1B2838] hover:border-[#FF6B6B]/40 hover:bg-[#FF6B6B]/5"
+                }`}
+              >
+                <div
+                  className={`p-2 rounded-xl w-fit mb-3 ${
+                    isSelected ? "bg-[#FF6B6B]/20" : "bg-white/5 group-hover:bg-[#FF6B6B]/10"
+                  } transition-all`}
+                >
+                  <Icon
+                    className={`h-5 w-5 ${
+                      isSelected ? "text-[#FF6B6B]" : "text-[#9aabb8] group-hover:text-[#FF6B6B]"
+                    }`}
+                  />
+                </div>
+                <h3
+                  className={`font-heading font-bold text-sm mb-1 ${
+                    isSelected ? "text-[#FF6B6B]" : "text-[#FFF5F2]"
+                  }`}
+                >
+                  {category.name}
+                </h3>
+                <p className="text-[#9aabb8] text-xs font-body line-clamp-2">
+                  {category.description}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Difficulty Filters */}
+      <div className="mb-8">
+        <h2 className="font-heading text-xl font-bold text-[#FFF5F2] mb-4">
+          Difficulty Level
+        </h2>
+        <div className="flex gap-3">
           {difficulties.map((diff) => {
             const isSelected = selectedDifficulty === diff.level;
             return (
@@ -312,98 +375,109 @@ export default function PracticePage() {
               </button>
             );
           })}
-          {selectedDifficulty && (
+          {(selectedCategory || selectedDifficulty) && (
             <button
               onClick={clearFilters}
               className="px-4 py-2 rounded-xl border border-[#2a3a4a] text-[#9aabb8] text-sm font-medium hover:border-[#FF6B6B] hover:text-[#FF6B6B] transition-all flex items-center gap-2"
             >
               <ArrowPathIcon className="h-4 w-4" />
-              Clear
+              Clear Filters
             </button>
           )}
         </div>
       </div>
 
-      {/* Start Session Button */}
-      {selectedJobs.length > 0 && (
-        <div className="mb-8 p-6 rounded-2xl border border-[#FF6B6B]/20 bg-gradient-to-r from-[#FF6B6B]/10 to-transparent">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <h3 className="font-heading text-xl font-bold text-[#FFF5F2]">
-                Ready to Practice?
-              </h3>
-              <p className="text-[#9aabb8] text-sm mt-1">
-                You'll face {totalQuestions} questions from {selectedJobs.length} job role{selectedJobs.length !== 1 ? 's' : ''}
-              </p>
-            </div>
+      {/* Sessions Grid */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-heading text-xl font-bold text-[#FFF5F2]">
+            Available Sessions
+          </h2>
+          <p className="text-[#9aabb8] text-sm font-body">
+            {filteredSessions.length} session{filteredSessions.length !== 1 ? "s" : ""} found
+          </p>
+        </div>
+
+        {filteredSessions.length === 0 ? (
+          <div className="text-center py-20">
+            <BookOpenIcon className="h-16 w-16 text-[#2a3a4a] mx-auto mb-4" />
+            <p className="text-[#9aabb8] font-body text-lg">No sessions found</p>
+            <p className="text-[#9aabb8] text-sm mt-2">Try adjusting your filters</p>
             <button
-              onClick={startMultiSession}
-              disabled={loading}
-              className="px-8 py-3 rounded-xl bg-[#FF6B6B] text-[#0D1B2A] font-heading font-bold text-lg hover:bg-[#FFA07A] transition-all flex items-center gap-2 disabled:opacity-50"
+              onClick={clearFilters}
+              className="mt-4 px-4 py-2 rounded-xl border border-[#FF6B6B] text-[#FF6B6B] text-sm hover:bg-[#FF6B6B]/10 transition-all"
             >
-              <PlayIcon className="h-5 w-5" />
-              Start Combined Session ({totalQuestions} questions)
+              Clear all filters
             </button>
           </div>
-        </div>
-      )}
-
-      {/* Quick Start - Single Category */}
-      {selectedJobs.length === 0 && (
-        <>
-          <div className="mb-6">
-            <h2 className="font-heading text-xl font-bold text-[#FFF5F2] mb-4">
-              Or start with one job role
-            </h2>
-          </div>
+        ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {categories.map((category) => {
-              const Icon = category.icon;
+            {filteredSessions.map((session) => {
+              const Icon = session.icon;
+              const isLoading = loadingSessionId === session.id;
               return (
                 <div
-                  key={category.id}
+                  key={session.id}
                   className="group relative rounded-2xl border border-[#2a3a4a] bg-[#1B2838] hover:border-[#FF6B6B]/40 hover:bg-[#FF6B6B]/5 transition-all duration-300 overflow-hidden"
                 >
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#FF6B6B]/0 to-[#FF6B6B]/0 group-hover:from-[#FF6B6B]/5 group-hover:to-transparent transition-all duration-300" />
+
                   <div className="relative p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div className="p-2 rounded-xl bg-white/5 group-hover:bg-[#FF6B6B]/10 transition-all">
                         <Icon className="h-6 w-6 text-[#FF6B6B]" />
                       </div>
+                      <span
+                        className={`px-2 py-1 rounded-lg text-xs font-mono font-medium ${getDifficultyBgColor(
+                          session.difficulty
+                        )} ${getDifficultyColor(session.difficulty)}`}
+                      >
+                        {session.difficulty}
+                      </span>
                     </div>
 
                     <h3 className="font-heading font-bold text-xl text-[#FFF5F2] mb-2">
-                      {category.name}
+                      {session.title}
                     </h3>
                     <p className="text-[#9aabb8] text-sm font-body mb-4 line-clamp-2">
-                      {category.description}
+                      {session.description}
                     </p>
 
                     <div className="flex items-center gap-4 mb-6 text-xs text-[#9aabb8] font-mono">
                       <div className="flex items-center gap-1">
                         <ClockIcon className="h-3 w-3" />
-                        <span>{QUESTIONS_PER_JOB * 2} min</span>
+                        <span>{session.duration} min</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <BookOpenIcon className="h-3 w-3" />
-                        <span>{QUESTIONS_PER_JOB} questions</span>
+                        <span>{session.questions} questions</span>
                       </div>
                     </div>
 
                     <button
-                      onClick={() => startSingleSession(category.id)}
-                      disabled={loading}
-                      className="w-full py-2.5 rounded-xl bg-[#FF6B6B]/10 border border-[#FF6B6B]/20 text-[#FF6B6B] font-heading font-bold text-sm hover:bg-[#FF6B6B] hover:text-[#0D1B2A] transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+                      onClick={() => startSession(session.id)}
+                      disabled={!!loadingSessionId}
+                      className="w-full py-2.5 rounded-xl bg-[#FF6B6B]/10 border border-[#FF6B6B]/20 text-[#FF6B6B] font-heading font-bold text-sm hover:bg-[#FF6B6B] hover:text-[#0D1B2A] transition-all flex items-center justify-center gap-2 group/btn disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      <PlayIcon className="h-4 w-4" />
-                      Start Practice
+                      {isLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                          Setting up...
+                        </>
+                      ) : (
+                        <>
+                          <PlayIcon className="h-4 w-4 group-hover/btn:animate-pulse" />
+                          Start Practice
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
               );
             })}
           </div>
-        </>
-      )}
+        )}
+      </div>
 
       {/* Tips Section */}
       <div className="mt-12 p-6 rounded-2xl bg-gradient-to-r from-[#FF6B6B]/10 to-transparent border border-[#FF6B6B]/20">
@@ -413,16 +487,22 @@ export default function PracticePage() {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
           <div className="space-y-1">
-            <p className="text-[#FF6B6B] text-xs font-mono">1. Multiple Jobs</p>
-            <p className="text-[#9aabb8] text-xs">Select multiple roles to practice mixed interviews (e.g., Technical + Behavioral)</p>
+            <p className="text-[#FF6B6B] text-xs font-mono">1. STAR Method</p>
+            <p className="text-[#9aabb8] text-xs">
+              Structure answers with Situation, Task, Action, Result
+            </p>
           </div>
           <div className="space-y-1">
-            <p className="text-[#FF6B6B] text-xs font-mono">2. STAR Method</p>
-            <p className="text-[#9aabb8] text-xs">Structure answers with Situation, Task, Action, Result</p>
+            <p className="text-[#FF6B6B] text-xs font-mono">2. Time Management</p>
+            <p className="text-[#9aabb8] text-xs">
+              Aim for 2-3 minutes per answer, be concise
+            </p>
           </div>
           <div className="space-y-1">
-            <p className="text-[#FF6B6B] text-xs font-mono">3. Time Management</p>
-            <p className="text-[#9aabb8] text-xs">Aim for 2-3 minutes per answer, be concise</p>
+            <p className="text-[#FF6B6B] text-xs font-mono">3. Be Specific</p>
+            <p className="text-[#9aabb8] text-xs">
+              Type clear, detailed answers — the AI evaluates depth and accuracy
+            </p>
           </div>
         </div>
       </div>

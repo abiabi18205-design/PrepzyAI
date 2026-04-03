@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 
@@ -131,9 +131,9 @@ const trustBadges = [
   "SOC 2 certified",
 ];
 
-// ─── Variants ──────────────────────────────────────────────────────────────────
+// ─── Variants with proper typing ──────────────────────────────────────────────
 
-const fadeInUp = {
+const fadeInUp: Variants = {
   hidden: { opacity: 0, y: 24 },
   visible: {
     opacity: 1,
@@ -142,7 +142,7 @@ const fadeInUp = {
   }
 };
 
-const staggerContainer = {
+const staggerContainer: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,

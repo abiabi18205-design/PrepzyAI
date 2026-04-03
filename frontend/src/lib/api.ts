@@ -436,7 +436,7 @@ export async function getResults(params?: {
     if (params?.minScore) queryParams.append("minScore", params.minScore.toString());
     if (params?.status) queryParams.append("status", params.status);
     
-    const url = `/api/results${queryParams.toString() ? `?${queryParams}` : ""}`;
+    const url = `/api/practice/results${queryParams.toString() ? `?${queryParams}` : ""}`;
     const res = await api.get(url);
     return res.data;
   } catch (error: any) {
@@ -448,3 +448,29 @@ export async function getResults(params?: {
 }
 
 export default api;
+// ── Onboarding ────────────────────────────────────────────────────────────────
+
+export async function onboardingChat(messages: { role: string; content: string }[]) {
+  try {
+    const res = await api.post("/api/onboarding/chat", { messages });
+    return res.data;
+  } catch (error: any) {
+    if (error.response?.data?.message) throw new Error(error.response.data.message);
+    throw error;
+  }
+}
+
+export async function saveOnboardingPreferences(data: {
+  role: string;
+  level: string;
+  type: string;
+  plan: string;
+}) {
+  try {
+    const res = await api.post("/api/onboarding/preferences", data);
+    return res.data;
+  } catch (error: any) {
+    if (error.response?.data?.message) throw new Error(error.response.data.message);
+    throw error;
+  }
+}
