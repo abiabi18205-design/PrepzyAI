@@ -10,6 +10,8 @@ import {
     MagnifyingGlassIcon,
     XMarkIcon,
     TagIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import {
     getQuestions,
@@ -65,6 +67,13 @@ const emptyForm: QuestionForm = {
     tags: "",
 };
 
+const ITEMS_PER_PAGE = 10;
+
+// Get serial number with padding (01, 02, 03...)
+const getSerialNumber = (index: number) => {
+    return String(index + 1).padStart(2, '0');
+};
+
 export default function AdminQuestionsPage() {
     const [questions, setQuestions] = useState<Question[]>([]);
     const [filtered, setFiltered] = useState<Question[]>([]);
@@ -72,6 +81,10 @@ export default function AdminQuestionsPage() {
     const [search, setSearch] = useState("");
     const [catFilter, setCatFilter] = useState("all");
     const [diffFilter, setDiffFilter] = useState("all");
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = ITEMS_PER_PAGE;
 
     // Modal state
     const [modal, setModal] = useState<"create" | "edit" | "delete" | null>(null);
@@ -96,6 +109,7 @@ export default function AdminQuestionsPage() {
         fetchQuestions();
     }, [fetchQuestions]);
 
+    // Apply filters
     useEffect(() => {
         let result = questions;
         if (catFilter !== "all") result = result.filter((q) => q.category === catFilter);
@@ -105,6 +119,7 @@ export default function AdminQuestionsPage() {
             result = result.filter((item) => item.title.toLowerCase().includes(q));
         }
         setFiltered(result);
+        setCurrentPage(1); // Reset to first page when filters change
     }, [questions, search, catFilter, diffFilter]);
 
     const openCreate = () => {
@@ -194,6 +209,19 @@ export default function AdminQuestionsPage() {
     const updateForm = (field: keyof QuestionForm, value: string) =>
         setForm((prev) => ({ ...prev, [field]: value }));
 
+    // Pagination calculations
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const currentQuestions = filtered.slice(startIndex, endIndex);
+
+    const goToPage = (page: number) => {
+        if (page >= 1 && page <= totalPages) {
+            setCurrentPage(page);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
     return (
         <div className="p-6 max-w-7xl mx-auto">
             {/* Header */}
@@ -207,7 +235,7 @@ export default function AdminQuestionsPage() {
                             Manage Questions
                         </h1>
                         <p className="text-[#9aabb8] text-sm mt-0.5">
-                            {loading ? "Loading…" : `${questions.length} question${questions.length !== 1 ? "s" : ""} total`}
+                            {loading ? "Loading…" : `${filtered.length} question${filtered.length !== 1 ? "s" : ""} found`}
                         </p>
                     </div>
                 </div>
@@ -261,6 +289,9 @@ export default function AdminQuestionsPage() {
                         <thead>
                             <tr className="border-b border-[#2a3a4a] bg-[#0D1B2A]/50">
                                 <th className="text-left px-5 py-3 text-xs font-mono font-semibold text-[#9aabb8] uppercase tracking-wider">
+                                    #
+                                </th>
+                                <th className="text-left px-5 py-3 text-xs font-mono font-semibold text-[#9aabb8] uppercase tracking-wider">
                                     Title
                                 </th>
                                 <th className="text-left px-5 py-3 text-xs font-mono font-semibold text-[#9aabb8] uppercase tracking-wider">
@@ -281,16 +312,16 @@ export default function AdminQuestionsPage() {
                             {loading ? (
                                 Array.from({ length: 6 }).map((_, i) => (
                                     <tr key={i}>
-                                        {Array.from({ length: 5 }).map((_, j) => (
+                                        {Array.from({ length: 6 }).map((_, j) => (
                                             <td key={j} className="px-5 py-4">
                                                 <div className="h-4 bg-[#2a3a4a] rounded animate-pulse" />
                                             </td>
                                         ))}
                                     </tr>
                                 ))
-                            ) : filtered.length === 0 ? (
+                            ) : currentQuestions.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-5 py-14 text-center">
+                                    <td colSpan={6} className="px-5 py-14 text-center">
                                         <QuestionMarkCircleIcon className="h-10 w-10 text-[#2a3a4a] mx-auto mb-3" />
                                         <p className="text-[#9aabb8] text-sm">No questions found</p>
                                         <button
@@ -302,8 +333,15 @@ export default function AdminQuestionsPage() {
                                     </td>
                                 </tr>
                             ) : (
-                                filtered.map((q) => (
+                                currentQuestions.map((q, index) => (
                                     <tr key={q._id} className="hover:bg-white/[0.02] transition-colors">
+                                        {/* Serial Number - 01, 02, 03... */}
+                                        <td className="px-5 py-4">
+                                            <span className="text-sm text-[#6EE7B7] font-mono font-bold">
+                                                {getSerialNumber(startIndex + index)}
+                                            </span>
+                                        </td>
+                                        {/* Title */}
                                         <td className="px-5 py-4 max-w-xs">
                                             <p className="text-sm text-[#FFF5F2] font-medium truncate">
                                                 {q.title}
@@ -314,16 +352,19 @@ export default function AdminQuestionsPage() {
                                                 </p>
                                             )}
                                         </td>
+                                        {/* Category */}
                                         <td className="px-5 py-4">
                                             <span className={`text-xs px-2.5 py-1 rounded-full border font-mono ${categoryStyle[q.category] ?? "text-[#9aabb8] bg-white/5 border-[#2a3a4a]"}`}>
                                                 {q.category}
                                             </span>
                                         </td>
+                                        {/* Difficulty */}
                                         <td className="px-5 py-4">
                                             <span className={`text-xs px-2.5 py-1 rounded-full border font-mono ${difficultyStyle[q.difficulty] ?? ""}`}>
                                                 {q.difficulty}
                                             </span>
                                         </td>
+                                        {/* Tags */}
                                         <td className="px-5 py-4 hidden md:table-cell">
                                             <div className="flex flex-wrap gap-1">
                                                 {q.tags?.slice(0, 3).map((tag) => (
@@ -342,6 +383,7 @@ export default function AdminQuestionsPage() {
                                                 )}
                                             </div>
                                         </td>
+                                        {/* Actions */}
                                         <td className="px-5 py-4">
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
@@ -367,6 +409,58 @@ export default function AdminQuestionsPage() {
                     </table>
                 </div>
             </div>
+
+            {/* Pagination */}
+            {!loading && totalPages > 1 && (
+                <div className="mt-6 flex items-center justify-between flex-wrap gap-4">
+                    <div className="text-sm text-[#9aabb8]">
+                        Showing {startIndex + 1} to {Math.min(endIndex, filtered.length)} of {filtered.length} questions
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => goToPage(currentPage - 1)}
+                            disabled={currentPage === 1}
+                            className="p-2 rounded-lg border border-[#2a3a4a] text-[#9aabb8] hover:border-[#FF6B6B] hover:text-[#FF6B6B] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <ChevronLeftIcon className="h-5 w-5" />
+                        </button>
+                        <div className="flex gap-2">
+                            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                let pageNum;
+                                if (totalPages <= 5) {
+                                    pageNum = i + 1;
+                                } else if (currentPage <= 3) {
+                                    pageNum = i + 1;
+                                } else if (currentPage >= totalPages - 2) {
+                                    pageNum = totalPages - 4 + i;
+                                } else {
+                                    pageNum = currentPage - 2 + i;
+                                }
+                                return (
+                                    <button
+                                        key={pageNum}
+                                        onClick={() => goToPage(pageNum)}
+                                        className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-all ${
+                                            currentPage === pageNum
+                                                ? "bg-[#FF6B6B] text-[#0D1B2A]"
+                                                : "border border-[#2a3a4a] text-[#9aabb8] hover:border-[#FF6B6B] hover:text-[#FF6B6B]"
+                                        }`}
+                                    >
+                                        {pageNum}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <button
+                            onClick={() => goToPage(currentPage + 1)}
+                            disabled={currentPage === totalPages}
+                            className="p-2 rounded-lg border border-[#2a3a4a] text-[#9aabb8] hover:border-[#FF6B6B] hover:text-[#FF6B6B] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                            <ChevronRightIcon className="h-5 w-5" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Create / Edit Modal */}
             {(modal === "create" || modal === "edit") && (

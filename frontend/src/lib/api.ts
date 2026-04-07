@@ -247,6 +247,20 @@ export async function changePassword(currentPassword: string, newPassword: strin
   }
 }
 
+// ── Delete Own Account (user deletes themselves) ──────────────────────────────
+
+export async function deleteOwnAccount() {
+  try {
+    const res = await api.delete("/api/auth/delete-account");
+    return res.data;
+  } catch (error: any) {
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw error;
+  }
+}
+
 // ── Token helpers ─────────────────────────────────────────────────────────────
 
 export function saveToken(token: string) {
@@ -447,7 +461,6 @@ export async function getResults(params?: {
   }
 }
 
-export default api;
 // ── Onboarding ────────────────────────────────────────────────────────────────
 
 export async function onboardingChat(messages: { role: string; content: string }[]) {
@@ -474,3 +487,47 @@ export async function saveOnboardingPreferences(data: {
     throw error;
   }
 }
+
+// ── Payment API calls ─────────────────────────────────────────────────────────
+
+export async function createPaymentSession(plan: "pro" | "premium", billing: "monthly" | "yearly") {
+  try {
+    const res = await api.post("/api/payment/create-checkout-session", { plan, billing });
+    return res.data;
+  } catch (error: any) {
+    if (error.response?.data?.message) throw new Error(error.response.data.message);
+    throw error;
+  }
+}
+
+export async function getUserPlan() {
+  try {
+    const res = await api.get("/api/payment/plan");
+    return res.data;
+  } catch (error: any) {
+    if (error.response?.data?.message) throw new Error(error.response.data.message);
+    throw error;
+  }
+}
+
+export async function activateFreePlan() {
+  try {
+    const res = await api.post("/api/payment/activate-free");
+    return res.data;
+  } catch (error: any) {
+    if (error.response?.data?.message) throw new Error(error.response.data.message);
+    throw error;
+  }
+}
+
+export async function confirmPaymentSession(sessionId?: string | null, mock?: string | null, plan?: string) {
+  try {
+    const res = await api.post("/api/payment/confirm-session", { sessionId, mock, plan });
+    return res.data;
+  } catch (error: any) {
+    if (error.response?.data?.message) throw new Error(error.response.data.message);
+    throw error;
+  }
+}
+
+export default api;

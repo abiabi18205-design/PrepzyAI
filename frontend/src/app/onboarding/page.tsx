@@ -8,6 +8,7 @@ import {
   PaperAirplaneIcon,
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
+import PaymentModal from "@/components/PaymentModal";
 
 interface Message {
   role: "assistant" | "user";
@@ -36,6 +37,7 @@ export default function OnboardingPage() {
   const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
   const [redirecting, setRedirecting] = useState(false);
   const [started, setStarted] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -110,11 +112,8 @@ export default function OnboardingPage() {
             plan: data.plan,
           }));
 
-          // Redirect after short delay
-          setTimeout(() => {
-            setRedirecting(true);
-            setTimeout(() => router.push("/dashboard"), 2000);
-          }, 1500);
+          // Show payment modal instead of redirecting directly
+          setTimeout(() => setShowPaymentModal(true), 1000);
         }
       }
     } catch (err) {
@@ -171,6 +170,20 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-[#0D1B2A] flex flex-col">
+
+      {/* Payment Modal Overlay */}
+      {showPaymentModal && (
+        <PaymentModal
+          onFreePlan={() => {
+            setShowPaymentModal(false);
+            router.push("/dashboard");
+          }}
+          onSuccess={(plan) => {
+            setShowPaymentModal(false);
+            router.push("/dashboard");
+          }}
+        />
+      )}
 
       {/* Header */}
       <div className="border-b border-[#2a3a4a] px-6 py-4 flex items-center gap-3">

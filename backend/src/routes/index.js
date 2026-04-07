@@ -4,6 +4,7 @@ import questionRoutes from './question_routes.js';
 import practiceRoutes from './practice_routes.js';
 import dashboardRoutes from './dashboard_routes.js';
 import onboardingRoutes from './onboarding_routes.js';
+import paymentRoutes from './payment_routes.js';
 
 const router = express.Router();
 
@@ -12,5 +13,6 @@ router.use('/questions', questionRoutes);
 router.use('/practice', practiceRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/onboarding', onboardingRoutes);
+router.use('/payment', paymentRoutes);
 
 export default router;

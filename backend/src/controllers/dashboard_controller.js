@@ -14,6 +14,7 @@ export const getDashboardStats = async (req, res) => {
 
     const totalInterviews = completedSessions.length;
 
+    // ✅ Overall Performance (Average Score)
     const averageScore =
       totalInterviews > 0
         ? Math.round(
@@ -27,6 +28,7 @@ export const getDashboardStats = async (req, res) => {
       0
     );
 
+    // ✅ Calculate streak
     let streak = 0;
     if (completedSessions.length > 0) {
       const today = new Date();
@@ -52,14 +54,7 @@ export const getDashboardStats = async (req, res) => {
       }
     }
 
-    const recentSessions = completedSessions.slice(0, 5).map((s) => ({
-      id: s._id,
-      title: s.title,
-      score: s.overallScore,
-      category: s.category,
-      date: s.createdAt,
-    }));
-
+    // ✅ Calculate category breakdown for Best Category
     const categoryBreakdown = {};
     completedSessions.forEach((s) => {
       if (!categoryBreakdown[s.category]) {
@@ -69,6 +64,47 @@ export const getDashboardStats = async (req, res) => {
       categoryBreakdown[s.category].totalScore += s.overallScore;
     });
 
+    // ✅ Find Best Category (highest average score)
+    let bestCategory = "N/A";
+    let highestAvg = 0;
+    Object.entries(categoryBreakdown).forEach(([cat, data]) => {
+      const avg = data.totalScore / data.count;
+      if (avg > highestAvg) {
+        highestAvg = avg;
+        bestCategory = cat;
+      }
+    });
+
+    // ✅ Calculate Improvement Rate (compare last 30 days with previous 30 days)
+    let improvementRate = 0;
+    const now = new Date();
+    const last30Days = new Date(now - 30 * 24 * 60 * 60 * 1000);
+    const previous30Days = new Date(last30Days - 30 * 24 * 60 * 60 * 1000);
+
+    const recentSessionsFiltered = completedSessions.filter(s => new Date(s.createdAt) >= last30Days);
+    const previousSessions = completedSessions.filter(
+      s => new Date(s.createdAt) >= previous30Days && new Date(s.createdAt) < last30Days
+    );
+
+    const recentAvg = recentSessionsFiltered.length > 0
+      ? recentSessionsFiltered.reduce((sum, s) => sum + s.overallScore, 0) / recentSessionsFiltered.length
+      : 0;
+    const previousAvg = previousSessions.length > 0
+      ? previousSessions.reduce((sum, s) => sum + s.overallScore, 0) / previousSessions.length
+      : 0;
+
+    if (previousAvg > 0) {
+      improvementRate = Math.round(((recentAvg - previousAvg) / previousAvg) * 100);
+    }
+
+    const recentSessions = completedSessions.slice(0, 5).map((s) => ({
+      id: s._id,
+      title: s.title,
+      score: s.overallScore,
+      category: s.category,
+      date: s.createdAt,
+    }));
+
     const categoryStats = Object.entries(categoryBreakdown).map(([cat, data]) => ({
       category: cat,
       sessions: data.count,
@@ -77,9 +113,11 @@ export const getDashboardStats = async (req, res) => {
 
     return successResponse(res, 200, "Dashboard stats fetched", {
       totalInterviews,
-      averageScore,
+      averageScore,        // ✅ Overall Performance
       questionsAnswered,
       streak,
+      bestCategory,        // ✅ NEW - Best Category
+      improvementRate,     // ✅ NEW - Improvement Rate
       recentSessions,
       categoryStats,
     });

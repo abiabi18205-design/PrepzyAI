@@ -18,6 +18,8 @@ export function middleware(request: NextRequest) {
     '/forgot-password',
     '/reset-password',
     '/google/success',
+    '/payment/success',
+    '/payment/cancel',
   ];
 
   const isOpen = openRoutes.some(route => pathname.startsWith(route));

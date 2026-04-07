@@ -13,7 +13,10 @@ import {
   logout,
   updateUserRole,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  changePassword,
+  deleteOwnAccount,
+  updateProfile,  // ✅ ADD THIS
 } from '../controllers/auth_controller.js';
 
 import { authMiddleware, authorizeRoles } from '../middlewares/auth_middleware.js';
@@ -48,10 +51,21 @@ const loginRules = [
   body('password').trim().notEmpty().withMessage('Password is required'),
 ];
 
+// ✅ Change password validation rules
+const changePasswordRules = [
+  body('currentPassword').notEmpty().withMessage('Current password is required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters'),
+];
+
 // ✅ Role update validation rules
 const updateRoleRules = [
   body('userId').notEmpty().withMessage('userId is required'),
   body('role').isIn(['user', 'admin']).withMessage('Role must be either "user" or "admin"'),
+];
+
+// ✅ Profile update validation rules
+const profileUpdateRules = [
+  body('name').trim().notEmpty().withMessage('Name is required').isString().withMessage('Name must be a string'),
 ];
 
 // ====================
@@ -102,9 +116,24 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
 
 // ====================
+// ✅ Change Password (for logged in users)
+// ====================
+router.post('/change-password', authMiddleware, validate(changePasswordRules), changePassword);
+
+// ====================
 // ✅ Logout
 // ====================
 router.post('/logout', logout);
+
+// ====================
+// ✅ Delete Own Account (user deletes themselves)
+// ====================
+router.delete('/delete-account', authMiddleware, deleteOwnAccount);
+
+// ====================
+// ✅ Update Profile (user updates their name)
+// ====================
+router.put('/profile', authMiddleware, validate(profileUpdateRules), updateProfile);
 
 // ====================
 // ✅ First Admin Setup (No token needed - secret key protected)
@@ -139,10 +168,18 @@ router.post('/setup-admin', async (req, res) => {
 router.put('/update-role', authMiddleware, authorizeRoles('admin'), validate(updateRoleRules), updateUserRole);
 
 // ====================
-// ✅ READ current user info
+// ✅ READ current user info (FIXED - returns full user data)
 // ====================
-router.get('/me', authMiddleware, (req, res) => {
-  return successResponse(res, 200, 'Current user info', { user: req.user });
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    return successResponse(res, 200, 'Current user info', { user });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
 });
 
 // ====================

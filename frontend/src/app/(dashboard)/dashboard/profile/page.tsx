@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getToken, removeToken } from "@/lib/api";
+import { getToken, removeToken, deleteOwnAccount } from "@/lib/api";
 import { 
   UserCircleIcon, 
   EnvelopeIcon, 
@@ -16,7 +16,8 @@ import {
   CalendarIcon,
   TrophyIcon,
   ShieldCheckIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  TrashIcon,
 } from "@heroicons/react/24/outline";
 
 interface UserProfile {
@@ -48,6 +49,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -252,6 +254,42 @@ export default function ProfilePage() {
       setMessage({ type: 'error', text: 'Failed to change password. Please check your current password.' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ✅ Delete Account Function
+  const handleDeleteAccount = async () => {
+    const confirmed = confirm(
+      "⚠️ WARNING: This action cannot be undone!\n\n" +
+      "All your data including:\n" +
+      "• Interview sessions\n" +
+      "• Progress and results\n" +
+      "• Account information\n\n" +
+      "will be permanently deleted.\n\n" +
+      "Are you absolutely sure you want to delete your account?"
+    );
+    
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      await deleteOwnAccount();
+      
+      // Clear all local storage
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("onboarding");
+      localStorage.removeItem("onboarding_preferences");
+      localStorage.removeItem("onboardings_practices");
+      
+      // Redirect to login page with deleted param
+      router.push("/login?deleted=true");
+    } catch (error: any) {
+      setMessage({ 
+        type: 'error', 
+        text: error.message || "Failed to delete account. Please try again." 
+      });
+      setDeleting(false);
     }
   };
 
@@ -628,23 +666,33 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Account Actions */}
+            {/* Danger Zone - Delete Account */}
             <div className="p-6 rounded-2xl border border-red-500/20 bg-red-500/5">
-              <h3 className="font-heading text-xl font-bold text-red-400 mb-2">
-                Danger Zone
-              </h3>
+              <div className="flex items-center gap-2 mb-2">
+                <TrashIcon className="h-5 w-5 text-red-400" />
+                <h3 className="font-heading text-xl font-bold text-red-400">
+                  Danger Zone
+                </h3>
+              </div>
               <p className="text-[#9aabb8] text-sm mb-4">
-                Once you delete your account, there is no going back. Please be certain.
+                Once you delete your account, there is no going back. All your data including interview sessions, progress, and results will be permanently deleted.
               </p>
               <button
-                onClick={() => {
-                  if (confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-                    alert("Account deletion not implemented yet. Contact support.");
-                  }
-                }}
-                className="px-4 py-2 rounded-xl border border-red-500 text-red-400 hover:bg-red-500/10 transition-colors text-sm"
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+                className="px-4 py-2 rounded-xl border border-red-500 text-red-400 hover:bg-red-500/10 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                Delete Account
+                {deleting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400" />
+                    Deleting Account...
+                  </>
+                ) : (
+                  <>
+                    <TrashIcon className="h-4 w-4" />
+                    Delete Account
+                  </>
+                )}
               </button>
             </div>
           </div>

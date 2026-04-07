@@ -14,7 +14,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   EyeIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 
 interface Question {
@@ -58,6 +58,8 @@ const difficulties = [
   "Hard"
 ];
 
+const ITEMS_PER_PAGE = 10;
+
 export default function QuestionsPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +72,7 @@ export default function QuestionsPage() {
   });
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
-    limit: 10,
+    limit: ITEMS_PER_PAGE,
     total: 0,
     totalPages: 0
   });
@@ -120,7 +122,7 @@ export default function QuestionsPage() {
 
   const handleFilterChange = (key: keyof FilterState, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
-    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page on filter change
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
 
   const clearFilters = () => {
@@ -157,6 +159,12 @@ export default function QuestionsPage() {
       case "DSA": return "📊";
       default: return "📚";
     }
+  };
+
+  // Get serial number with padding (01, 02, 03...)
+  const getSerialNumber = (index: number) => {
+    const globalIndex = (pagination.page - 1) * ITEMS_PER_PAGE + index + 1;
+    return String(globalIndex).padStart(2, '0');
   };
 
   return (
@@ -271,7 +279,7 @@ export default function QuestionsPage() {
         </button>
       </div>
 
-      {/* Questions Grid */}
+      {/* Questions Grid/Cards - Keeping your original card layout */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FF6B6B]"></div>
@@ -290,7 +298,7 @@ export default function QuestionsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          {questions.map((question) => (
+          {questions.map((question, index) => (
             <div
               key={question._id}
               className="group p-6 rounded-2xl border border-[#2a3a4a] bg-[#1B2838] hover:border-[#FF6B6B]/40 hover:bg-[#FF6B6B]/5 transition-all cursor-pointer"
@@ -299,16 +307,20 @@ export default function QuestionsPage() {
                 setShowModal(true);
               }}
             >
-              {/* Header */}
+              {/* Header with Serial Number */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-3 mb-2">
+                    {/* Serial Number - 01, 02, 03... */}
+                    <span className="text-lg font-mono font-bold text-[#FF6B6B] bg-[#FF6B6B]/10 px-2 py-1 rounded-lg">
+                      {getSerialNumber(index)}
+                    </span>
                     <span className="text-2xl">{getCategoryIcon(question.category)}</span>
                     <h3 className="font-heading font-bold text-lg text-[#FFF5F2] group-hover:text-[#FF6B6B] transition-colors">
                       {question.title}
                     </h3>
                   </div>
-                  <p className="text-[#9aabb8] text-sm font-body line-clamp-2">
+                  <p className="text-[#9aabb8] text-sm font-body line-clamp-2 ml-11">
                     {question.description}
                   </p>
                 </div>
@@ -322,7 +334,7 @@ export default function QuestionsPage() {
 
               {/* Tags */}
               {question.tags && question.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3">
+                <div className="flex flex-wrap gap-2 mt-3 ml-11">
                   {question.tags.slice(0, 3).map((tag, idx) => (
                     <span
                       key={idx}
@@ -340,7 +352,7 @@ export default function QuestionsPage() {
               )}
 
               {/* Footer */}
-              <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[#2a3a4a] text-xs text-[#9aabb8]">
+              <div className="flex items-center gap-4 mt-4 pt-3 border-t border-[#2a3a4a] text-xs text-[#9aabb8] ml-11">
                 <div className="flex items-center gap-1">
                   <TagIcon className="h-3 w-3" />
                   <span>{question.category}</span>
@@ -405,7 +417,7 @@ export default function QuestionsPage() {
         </div>
       )}
 
-      {/* Question Detail Modal */}
+      {/* Question Detail Modal (Keeping your existing modal) */}
       {showModal && selectedQuestion && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="relative max-w-3xl w-full max-h-[90vh] overflow-y-auto rounded-2xl bg-[#1B2838] border border-[#2a3a4a] shadow-2xl">
@@ -479,7 +491,6 @@ export default function QuestionsPage() {
                 <button
                   onClick={() => {
                     setShowModal(false);
-                    // Navigate to practice with this question
                     window.location.href = `/dashboard/practice?question=${selectedQuestion._id}`;
                   }}
                   className="flex-1 py-3 rounded-xl bg-[#FF6B6B] text-[#0D1B2A] font-heading font-bold hover:bg-[#FFA07A] transition-all"

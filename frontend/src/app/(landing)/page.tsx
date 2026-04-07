@@ -131,6 +131,60 @@ const trustBadges = [
   "SOC 2 certified",
 ];
 
+// ─── Pricing Plans ────────────────────────────────────────────────────────────
+
+const pricingPlans = [
+  {
+    name: "Free",
+    price: "LKR 0",
+    period: "/month",
+    description: "Perfect to get started",
+    features: [
+      "3 AI Mock Interviews/month",
+      "Basic question bank",
+      "Standard feedback",
+      "Email support",
+    ],
+    buttonText: "Get Started",
+    buttonVariant: "outline",
+    popular: false,
+  },
+  {
+    name: "Pro",
+    price: "LKR 3,600.00",
+    period: "/month",
+    description: "Most popular for serious job seekers",
+    features: [
+      "Unlimited AI Mock Interviews",
+      "Smart AI Feedback & Scoring",
+      "Full question bank access",
+      "Priority email support",
+      "Detailed performance analytics",
+      "Interview replay & review",
+    ],
+    buttonText: "Upgrade to Pro",
+    buttonVariant: "primary",
+    popular: true,
+  },
+  {
+    name: "Premium",
+    price: "LKR 7,200.00",
+    period: "/month",
+    description: "Ultimate preparation package",
+    features: [
+      "Everything in Pro",
+      "1-on-1 AI coaching sessions",
+      "Custom role-specific paths",
+      "Priority access to new features",
+      "Resume & LinkedIn review",
+      "Dedicated success manager",
+    ],
+    buttonText: "Go Premium",
+    buttonVariant: "premium",
+    popular: false,
+  },
+];
+
 // ─── Variants with proper typing ──────────────────────────────────────────────
 
 const fadeInUp: Variants = {
@@ -155,6 +209,33 @@ const staggerContainer: Variants = {
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
+  const [billing, setBilling] = useState<"monthly" | "yearly">("monthly");
+
+  const getPrice = (planName: string) => {
+    if (planName === "Pro") {
+      return billing === "monthly" ? "LKR 3,600.00" : "LKR 2,700.00";
+    }
+    if (planName === "Premium") {
+      return billing === "monthly" ? "LKR 7,200.00" : "LKR 5,400.00";
+    }
+    return "LKR 0";
+  };
+
+  const getPeriod = (planName: string) => {
+    if (planName === "Free") return "/month";
+    return billing === "monthly" ? "/month" : "/month (billed yearly)";
+  };
+
+  const getYearlySavings = (planName: string) => {
+    if (billing === "yearly" && planName === "Pro") {
+      return "Save LKR 8000/year";
+    }
+    if (billing === "yearly" && planName === "Premium") {
+      return "Save LKR 10,000/year";
+    }
+    return null;
+  };
+
   return (
     <div className="min-h-screen bg-white overflow-x-hidden pt-20">
 
@@ -168,15 +249,7 @@ export default function HomePage() {
 
         <div className="relative max-w-7xl mx-auto">
           <div className="text-center">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-accent/10 bg-accent/5 text-accent text-xs font-bold mb-8"
-            >
-              <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-              Trusted by 50,000+ Job Seekers Worldwide
-            </motion.div>
+            {/* Trusted by badge - REMOVED */}
 
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
@@ -456,8 +529,138 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── Pricing Section ────────────────────────────────────────────────── */}
+      <section id="pricing" className="py-32 px-6">
+        <div className="max-w-7xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="text-center mb-12"
+          >
+            <span className="text-accent text-xs font-black uppercase tracking-[0.3em] mb-4 block">Pricing</span>
+            <h2 className="font-heading text-4xl md:text-5xl font-extrabold text-light mt-4 mb-6 tracking-tight">
+              Simple, transparent pricing
+            </h2>
+            <p className="text-muted font-medium text-lg max-w-2xl mx-auto leading-relaxed">
+              Choose the plan that works for you. Upgrade or downgrade anytime.
+            </p>
+          </motion.div>
+
+          {/* Billing Toggle */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="flex items-center justify-center gap-4 mb-12"
+          >
+            <button
+              onClick={() => setBilling("monthly")}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                billing === "monthly"
+                  ? "bg-accent text-white shadow-lg shadow-accent/20"
+                  : "text-muted hover:text-light"
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBilling("yearly")}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${
+                billing === "yearly"
+                  ? "bg-accent text-white shadow-lg shadow-accent/20"
+                  : "text-muted hover:text-light"
+              }`}
+            >
+              Yearly
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">
+                Save 25%
+              </span>
+            </button>
+          </motion.div>
+
+          {/* Pricing Cards */}
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+            className="grid grid-cols-1 md:grid-cols-3 gap-8"
+          >
+            {pricingPlans.map((plan, index) => (
+              <motion.div
+                key={plan.name}
+                variants={fadeInUp}
+                whileHover={{ y: -8 }}
+                className={`relative rounded-3xl border transition-all duration-300 ${
+                  plan.popular
+                    ? "border-accent shadow-xl shadow-accent/10 bg-white scale-105 md:scale-105"
+                    : "border-border bg-white hover:shadow-xl"
+                }`}
+              >
+                {plan.popular && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-accent text-white text-xs font-bold px-3 py-1 rounded-full">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                <div className="p-8">
+                  <h3 className="font-heading text-2xl font-bold text-light mb-2">
+                    {plan.name}
+                  </h3>
+                  <p className="text-muted text-sm mb-4">{plan.description}</p>
+                  <div className="mb-4">
+                    <span className="text-4xl font-heading font-black text-light">
+                      {getPrice(plan.name)}
+                    </span>
+                    <span className="text-muted text-sm">{getPeriod(plan.name)}</span>
+                  </div>
+                  {getYearlySavings(plan.name) && (
+                    <p className="text-green-600 text-xs font-semibold mb-4">
+                      {getYearlySavings(plan.name)}
+                    </p>
+                  )}
+                  <ul className="space-y-3 mb-8">
+                    {plan.features.map((feature, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm text-muted">
+                        <svg className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href={plan.name === "Free" ? "/signup" : "/signup"}
+                    className={`w-full block text-center py-3 rounded-xl font-heading font-bold text-sm transition-all ${
+                      plan.buttonVariant === "primary"
+                        ? "bg-accent text-white hover:bg-accent/90 hover:scale-[1.02] shadow-lg shadow-accent/20"
+                        : plan.buttonVariant === "premium"
+                        ? "bg-amber-500 text-white hover:bg-amber-600 hover:scale-[1.02] shadow-lg shadow-amber-300/30"
+                        : "border-2 border-border text-light hover:border-accent/30 hover:bg-accent/5"
+                    }`}
+                  >
+                    {plan.buttonText}
+                  </Link>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <motion.p
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            className="text-center text-muted text-xs mt-8"
+          >
+            All plans include a 30-day money-back guarantee. No questions asked.
+          </motion.p>
+        </div>
+      </section>
+
       {/* ── Testimonials ──────────────────────────────────────────────────── */}
-      <section className="py-32 px-6">
+      <section className="py-32 px-6 bg-surface">
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}

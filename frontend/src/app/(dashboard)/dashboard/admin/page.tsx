@@ -19,6 +19,7 @@ interface AdminStats {
     totalQuestions: number;
     byDifficulty: { Easy: number; Medium: number; Hard: number };
     byCategory: Record<string, number>;
+    subscriptions: { free: number; pro: number; premium: number };
 }
 
 interface RecentUser {
@@ -54,12 +55,23 @@ export default function AdminOverviewPage() {
                     byCategory[q.category] = (byCategory[q.category] ?? 0) + 1;
                 });
 
+                const subscriptions = { free: 0, pro: 0, premium: 0 };
+                users.forEach((u: any) => {
+                    const plan = u.plan || 'free';
+                    if (plan in subscriptions) {
+                        subscriptions[plan as keyof typeof subscriptions]++;
+                    } else {
+                        subscriptions.free++;
+                    }
+                });
+
                 setStats({
                     totalUsers: users.length,
                     adminUsers: users.filter((u) => u.role === "admin").length,
                     totalQuestions: questions.length,
                     byDifficulty,
                     byCategory,
+                    subscriptions,
                 });
 
                 // Last 5 users by createdAt
@@ -120,6 +132,15 @@ export default function AdminOverviewPage() {
             bg: "bg-[#FFA07A]/10",
             href: "/dashboard/admin/sessions",
         },
+        {
+            title: "Premium Subs",
+            value: stats ? (stats.subscriptions.pro + stats.subscriptions.premium) : 0,
+            sub: "paying users",
+            icon: ArrowTrendingUpIcon,
+            color: "text-amber-400",
+            bg: "bg-amber-400/10",
+            href: "/dashboard/admin/users",
+        },
     ];
 
     const difficultyColors: Record<string, string> = {
@@ -146,7 +167,7 @@ export default function AdminOverviewPage() {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
                 {statCards.map((card) => (
                     <Link
                         key={card.title}
@@ -305,6 +326,27 @@ export default function AdminOverviewPage() {
                                 ))}
                             </div>
                         )}
+                    </div>
+                </div>
+
+                {/* Subscriptions Overview */}
+                <div className="rounded-2xl border border-[#2a3a4a] bg-[#1B2838] overflow-hidden lg:col-span-2">
+                    <div className="px-5 py-4 border-b border-[#2a3a4a]">
+                        <h2 className="font-heading font-bold text-[#FFF5F2] text-sm">Subscriptions Overview</h2>
+                    </div>
+                    <div className="grid grid-cols-3 divide-x divide-[#2a3a4a]">
+                        <div className="p-4 text-center">
+                            <div className="text-[#9aabb8] text-xs font-mono mb-2 uppercase">Free</div>
+                            <div className="text-2xl font-bold text-[#FFF5F2]">{loading ? '...' : stats?.subscriptions.free}</div>
+                        </div>
+                        <div className="p-4 text-center bg-[#FF6B6B]/5">
+                            <div className="text-[#FF6B6B] text-xs font-mono mb-2 uppercase">Pro</div>
+                            <div className="text-2xl font-bold text-[#FFF5F2]">{loading ? '...' : stats?.subscriptions.pro}</div>
+                        </div>
+                        <div className="p-4 text-center bg-amber-400/5">
+                            <div className="text-amber-400 text-xs font-mono mb-2 uppercase">Premium</div>
+                            <div className="text-2xl font-bold text-[#FFF5F2]">{loading ? '...' : stats?.subscriptions.premium}</div>
+                        </div>
                     </div>
                 </div>
             </div>
