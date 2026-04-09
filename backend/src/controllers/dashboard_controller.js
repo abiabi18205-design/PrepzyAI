@@ -111,9 +111,29 @@ export const getDashboardStats = async (req, res) => {
       avgScore: Math.round(data.totalScore / data.count),
     }));
 
+    // ✅ Calculate Best Score
+    const bestScore = completedSessions.length > 0
+      ? Math.max(...completedSessions.map(s => s.overallScore || 0))
+      : 0;
+
+    // ✅ Calculate Average Confidence
+    let totalConfidence = 0;
+    let sessionsWithConfidence = 0;
+    completedSessions.forEach(s => {
+      if (s.avgConfidence) {
+        totalConfidence += s.avgConfidence;
+        sessionsWithConfidence++;
+      }
+    });
+    const averageConfidence = sessionsWithConfidence > 0
+      ? Math.round((totalConfidence / sessionsWithConfidence) * 10) / 10
+      : 0;
+
     return successResponse(res, 200, "Dashboard stats fetched", {
       totalInterviews,
       averageScore,        // ✅ Overall Performance
+      bestScore,           // ✅ Best Score
+      averageConfidence,   // ✅ Avg Confidence
       questionsAnswered,
       streak,
       bestCategory,        // ✅ NEW - Best Category

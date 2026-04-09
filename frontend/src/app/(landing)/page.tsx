@@ -15,8 +15,8 @@ const features = [
         <circle cx="12" cy="12" r="1.5" fill="#FF6B6B" />
       </svg>
     ),
-    title: "AI Voice Interviews",
-    desc: "Practice with a conversational AI that adapts to your responses in real time, just like a real interviewer.",
+    title: "Simulated Voice Interviews",
+    desc: "Speak your answers naturally using your microphone, allowing you to practice exactly like in a live interview scenario.",
   },
   {
     icon: (
@@ -25,8 +25,8 @@ const features = [
         <path d="M7 17l3-4 3 3 2-3 2 4" stroke="#FF6B6B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
-    title: "Instant Analytics",
-    desc: "Get detailed breakdowns of your confidence, pacing, filler words, and content quality after every session.",
+    title: "Deep AI Evaluation",
+    desc: "Get incredibly detailed feedback on your accuracy, clarity, and completeness, powered by advanced Llama 3 models.",
   },
   {
     icon: (
@@ -35,8 +35,8 @@ const features = [
         <path d="M12 6v6l4 2" stroke="#FF6B6B" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
-    title: "Smart Question Bank",
-    desc: "10,000+ role-specific questions across tech, finance, product, design, and more.",
+    title: "Vast Question Library",
+    desc: "Master specific domains with questions explicitly constructed for Frontend, Backend, System Design, DSA, and HR roles.",
   },
   {
     icon: (
@@ -44,8 +44,8 @@ const features = [
         <path d="M4 4h16v4H4zM4 10h10v4H4zM4 16h7v4H4z" stroke="#FF6B6B" strokeWidth="1.5" strokeLinejoin="round" />
       </svg>
     ),
-    title: "Answer Coaching",
-    desc: "AI rewrites your answers using STAR and other proven frameworks so you learn structure, not just memorize.",
+    title: "STAR Method Coaching",
+    desc: "Learn to structure behavioral answers flawlessly with specific 'what went well' and 'what to improve' actionable feedback.",
   },
   {
     icon: (
@@ -53,8 +53,8 @@ const features = [
         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="#FF6B6B" strokeWidth="1.5" strokeLinejoin="round" />
       </svg>
     ),
-    title: "Company-Specific Prep",
-    desc: "Simulate interviews tailored to Google, Amazon, Meta, McKinsey, and hundreds more top employers.",
+    title: "Confidence Analysis",
+    desc: "Our AI scans your answer length and detects weak language or hesitation to calculate and improve your speaking confidence.",
   },
   {
     icon: (
@@ -62,8 +62,8 @@ const features = [
         <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="#FF6B6B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
-    title: "Spaced Repetition",
-    desc: "Our algorithm resurfaces your weak areas so you spend less time and make faster progress.",
+    title: "Track Your Growth",
+    desc: "Watch your average score and personal best climb over time with our beautiful and detailed results dashboard.",
   },
 ];
 
@@ -94,27 +94,6 @@ const steps = [
     num: "04",
     title: "Land the Job",
     desc: "Iterate until you're ready. Track your growth and walk in with confidence.",
-  },
-];
-
-const testimonials = [
-  {
-    name: "Raj M.",
-    role: "Software Engineer @ Amazon",
-    initial: "R",
-    text: "PrepzyAI felt like a real interview. The feedback was incredibly detailed — I knew exactly what to fix before my actual Amazon loop.",
-  },
-  {
-    name: "Priya K.",
-    role: "Product Manager @ Google",
-    initial: "P",
-    text: "I used it every day for 3 weeks. The STAR coaching alone is worth it. Landed my PM role with Google on the first try.",
-  },
-  {
-    name: "Daniel O.",
-    role: "Data Analyst @ McKinsey",
-    initial: "D",
-    text: "The company-specific questions for McKinsey were spot on. I walked in confident and walked out with an offer.",
   },
 ];
 
@@ -249,8 +228,6 @@ export default function HomePage() {
 
         <div className="relative max-w-7xl mx-auto">
           <div className="text-center">
-            {/* Trusted by badge - REMOVED */}
-
             <motion.h1
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -556,21 +533,19 @@ export default function HomePage() {
           >
             <button
               onClick={() => setBilling("monthly")}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${
-                billing === "monthly"
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all ${billing === "monthly"
                   ? "bg-accent text-white shadow-lg shadow-accent/20"
                   : "text-muted hover:text-light"
-              }`}
+                }`}
             >
               Monthly
             </button>
             <button
               onClick={() => setBilling("yearly")}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${
-                billing === "yearly"
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all flex items-center gap-2 ${billing === "yearly"
                   ? "bg-accent text-white shadow-lg shadow-accent/20"
                   : "text-muted hover:text-light"
-              }`}
+                }`}
             >
               Yearly
               <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">
@@ -592,11 +567,10 @@ export default function HomePage() {
                 key={plan.name}
                 variants={fadeInUp}
                 whileHover={{ y: -8 }}
-                className={`relative rounded-3xl border transition-all duration-300 ${
-                  plan.popular
+                className={`relative rounded-3xl border transition-all duration-300 ${plan.popular
                     ? "border-accent shadow-xl shadow-accent/10 bg-white scale-105 md:scale-105"
                     : "border-border bg-white hover:shadow-xl"
-                }`}
+                  }`}
               >
                 {plan.popular && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
@@ -633,13 +607,12 @@ export default function HomePage() {
                   </ul>
                   <Link
                     href={plan.name === "Free" ? "/signup" : "/signup"}
-                    className={`w-full block text-center py-3 rounded-xl font-heading font-bold text-sm transition-all ${
-                      plan.buttonVariant === "primary"
+                    className={`w-full block text-center py-3 rounded-xl font-heading font-bold text-sm transition-all ${plan.buttonVariant === "primary"
                         ? "bg-accent text-white hover:bg-accent/90 hover:scale-[1.02] shadow-lg shadow-accent/20"
                         : plan.buttonVariant === "premium"
-                        ? "bg-amber-500 text-white hover:bg-amber-600 hover:scale-[1.02] shadow-lg shadow-amber-300/30"
-                        : "border-2 border-border text-light hover:border-accent/30 hover:bg-accent/5"
-                    }`}
+                          ? "bg-amber-500 text-white hover:bg-amber-600 hover:scale-[1.02] shadow-lg shadow-amber-300/30"
+                          : "border-2 border-border text-light hover:border-accent/30 hover:bg-accent/5"
+                      }`}
                   >
                     {plan.buttonText}
                   </Link>
@@ -659,58 +632,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── Testimonials ──────────────────────────────────────────────────── */}
-      <section className="py-32 px-6 bg-surface">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-24"
-          >
-            <span className="text-accent text-xs font-black uppercase tracking-[0.3em] mb-4 block">Success Stories</span>
-            <h2 className="font-heading text-4xl md:text-5xl font-extrabold text-light mt-4 tracking-tight">
-              Trusted by professionals at
-            </h2>
-          </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((t, i) => (
-              <motion.div
-                key={t.name}
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.1 }}
-                className="p-8 rounded-3xl border border-border bg-white shadow-sm hover:shadow-xl transition-all duration-500 flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex gap-1 mb-6">
-                    {[...Array(5)].map((_, i) => (
-                      <svg key={i} className="w-4 h-4 text-[#FACC15]" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
-                    ))}
-                  </div>
-                  <p className="text-light/90 text-lg font-medium leading-relaxed italic mb-8">
-                    &ldquo;{t.text}&rdquo;
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-4 pt-6 border-t border-border">
-                  <div className="w-12 h-12 rounded-full bg-accent text-white flex items-center justify-center font-black text-lg">
-                    {t.initial}
-                  </div>
-                  <div>
-                    <p className="text-light font-black text-sm">{t.name}</p>
-                    <p className="text-muted font-bold text-xs uppercase tracking-wider">{t.role}</p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ── CTA ───────────────────────────────────────────────────────────── */}
       <section className="py-24 md:py-32 px-6">

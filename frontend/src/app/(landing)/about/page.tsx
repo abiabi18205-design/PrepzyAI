@@ -28,29 +28,29 @@ const values = [
   },
 ];
 
-const team = [
+const techHighlights = [
   {
-    name: "Aria Chen",
-    role: "CEO & Co-founder",
-    initials: "AC",
+    title: "Fast AI Inference",
+    role: "Llama 3 Powered",
+    icon: "⚡",
     color: "bg-blue-100 text-blue-600",
   },
   {
-    name: "Marcus Webb",
-    role: "CTO & Co-founder",
-    initials: "MW",
+    title: "Real-time Processing",
+    role: "Voice & Speech Analysis",
+    icon: "🎙️",
     color: "bg-purple-100 text-purple-600",
   },
   {
-    name: "Priya Nair",
-    role: "Head of AI Research",
-    initials: "PN",
+    title: "Smart Storage",
+    role: "Over 10K+ Questions",
+    icon: "🗄️",
     color: "bg-orange-100 text-orange-600",
   },
   {
-    name: "Liam Torres",
-    role: "Head of Product",
-    initials: "LT",
+    title: "Deep Analytics",
+    role: "Confidence Scoring",
+    icon: "🧠",
     color: "bg-emerald-100 text-emerald-600",
   },
 ];
@@ -80,7 +80,7 @@ const milestones = [
 
 const miniStats = [
   { value: "2023", label: "Founded" },
-  { value: "24", label: "Team Size" },
+  { value: "100%", label: "Automated Prep" },
   { value: "38", label: "Countries" },
   { value: "50K+", label: "Users Helped" },
 ];
@@ -235,7 +235,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* ── Team ─────────────────────────────────────────────────────────── */}
+      {/* ── Technology Edge ────────────────────────────────────────────────── */}
       <section className="py-32 px-6 bg-surface border-y border-border">
         <div className="max-w-7xl mx-auto">
           <motion.div
@@ -244,12 +244,12 @@ export default function AboutPage() {
             viewport={{ once: true }}
             className="text-center mb-20"
           >
-            <span className="text-accent text-xs font-black uppercase tracking-[0.3em] mb-4 block">The Crew</span>
+            <span className="text-accent text-xs font-black uppercase tracking-[0.3em] mb-4 block">The Brains</span>
             <h2 className="font-heading text-4xl font-extrabold text-light tracking-tight">
-              Meet the Team
+              Our Technology Edge
             </h2>
             <p className="text-muted mt-4 font-medium text-lg max-w-md mx-auto leading-relaxed">
-              A diverse team of engineers, designers, and AI researchers obsessed with excellence.
+              Powered by advanced AI models built specifically for rigorous interview prep.
             </p>
           </motion.div>
 
@@ -260,18 +260,18 @@ export default function AboutPage() {
             viewport={{ once: true }}
             className="grid grid-cols-2 lg:grid-cols-4 gap-8"
           >
-            {team.map((m) => (
+            {techHighlights.map((m) => (
               <motion.div
-                key={m.name}
+                key={m.title}
                 variants={fadeInUp}
                 className="p-8 rounded-3xl border border-border bg-white text-center hover:border-accent/20 hover:shadow-xl transition-all duration-300"
               >
                 <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-white/10 shadow-inner ${m.color}`}>
-                  <span className="font-heading font-black text-2xl">
-                    {m.initials}
+                  <span className="font-heading font-black text-4xl">
+                    {m.icon}
                   </span>
                 </div>
-                <h3 className="font-heading font-extrabold text-light text-lg mb-1">{m.name}</h3>
+                <h3 className="font-heading font-extrabold text-light text-lg mb-1">{m.title}</h3>
                 <p className="text-muted text-xs font-bold uppercase tracking-widest">{m.role}</p>
               </motion.div>
             ))}

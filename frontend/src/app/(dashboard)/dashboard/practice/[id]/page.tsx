@@ -302,20 +302,36 @@ export default function PracticeSessionPage() {
     setCompleting(true);
     if (timerRef.current) clearInterval(timerRef.current);
 
+    const timeoutId = setTimeout(() => {
+      console.warn("Complete session timed out, redirecting anyway");
+      router.push("/dashboard/results");
+    }, 35000);
+
     try {
       const res = await api.post("/api/practice/complete", {
         sessionId,
         duration: Math.round(timeElapsed / 60),
-      });
+      }, { timeout: 30000 });
 
+      clearTimeout(timeoutId);
       if (res.data.success) {
         router.push(`/dashboard/results`);
+      } else {
+        clearTimeout(timeoutId);
+        setCompleting(false);
       }
     } catch (err: any) {
+      clearTimeout(timeoutId);
       console.error("Failed to complete session:", err);
-      router.push("/dashboard/results");
-    } finally {
       setCompleting(false);
+      
+      const errMsg = err.response?.data?.message || err.message;
+      if (errMsg === "No answers to complete") {
+        alert("Please provide at least one answer before finishing the session!");
+      } else {
+        // Fallback: if evaluating failed or server down, go to results anyway but let them know
+        router.push("/dashboard/results");
+      }
     }
   };
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
+import api from "@/lib/api";
 
 const faqs = [
   {
@@ -79,14 +80,24 @@ export default function ContactPage() {
     setError("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name || !form.email || !form.message) {
       setError("Please fill in your name, email, and message.");
       return;
     }
-    // Simulate API call
-    setSubmitted(true);
+    setError("");
+
+    try {
+      const res = await api.post("/api/contact", form);
+      if (res.data.success) {
+        setSubmitted(true);
+      }
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message || "Failed to send message. Please try again later."
+      );
+    }
   };
 
   const inputClass =

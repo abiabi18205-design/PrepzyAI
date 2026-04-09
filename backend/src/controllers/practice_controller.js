@@ -75,10 +75,17 @@ const callAIWithRetry = async (systemPrompt, userPrompt, maxRetries = 3) => {
     } catch (error) {
       console.log(`Attempt ${i + 1} failed:`, error.message);
       if (i === maxRetries - 1) throw error;
-      // Exponential backoff
       await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)));
     }
   }
+};
+
+// ✅ Helper: AI call with timeout
+const callAIWithTimeout = async (systemPrompt, userPrompt, timeoutMs = 15000) => {
+  return Promise.race([
+    callAIWithRetry(systemPrompt, userPrompt, 2),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('AI timeout')), timeoutMs))
+  ]);
 };
 
 // ====================
@@ -92,11 +99,37 @@ export const createSession = async (req, res) => {
     const filter = { category: dbCategory };
     if (difficulty && difficulty !== "Mixed") filter.difficulty = difficulty;
 
-    const allQuestions = await Question.find(filter);
+    let allQuestions = await Question.find(filter);
+    
+    // ✅ FALLBACK: If not enough questions for this difficulty, pull from ANY difficulty in this category
+    if (allQuestions.length < questionCount) {
+      const moreQuestions = await Question.find({ category: dbCategory });
+      // Merge unique questions
+      const questionIds = new Set(allQuestions.map(q => q._id.toString()));
+      moreQuestions.forEach(q => {
+        if (!questionIds.has(q._id.toString())) {
+          allQuestions.push(q);
+          questionIds.add(q._id.toString());
+        }
+      });
+    }
+
+    // ✅ FALLBACK 2: If STILL not enough questions, pull from ANY category to make sure we hit the target
+    if (allQuestions.length < questionCount) {
+      const anyQuestions = await Question.find({});
+      const questionIds = new Set(allQuestions.map(q => q._id.toString()));
+      anyQuestions.forEach(q => {
+        if (!questionIds.has(q._id.toString())) {
+          allQuestions.push(q);
+          questionIds.add(q._id.toString());
+        }
+      });
+    }
+
     if (allQuestions.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No questions found for this category/difficulty",
+        message: "No questions found in the database.",
       });
     }
 
@@ -299,10 +332,8 @@ export const evaluateAnswer = async (req, res) => {
       return res.status(404).json({ success: false, message: "Question not found" });
     }
 
-    // ✅ Define cacheKey BEFORE using it
     const cacheKey = `${questionId}:${userAnswer.toLowerCase().trim()}`;
 
-    // ✅ Check cache
     if (evaluationCache.has(cacheKey)) {
       console.log("✅ Returning cached evaluation");
       const evaluation = evaluationCache.get(cacheKey);
@@ -338,7 +369,6 @@ export const evaluateAnswer = async (req, res) => {
       return successResponse(res, 200, "Answer evaluated (cached)", { evaluation });
     }
 
-    // ✅ Analyze answer length
     const wordCount = userAnswer.trim().split(/\s+/).length;
     let lengthScore = 10;
     let lengthFeedback = "";
@@ -357,23 +387,8 @@ export const evaluateAnswer = async (req, res) => {
       lengthFeedback = "Perfect length - detailed but concise.";
     }
 
-    // ✅ Difficulty expectations
-    const getDifficultyExpectations = (difficulty) => {
-      switch(difficulty) {
-        case "Easy":
-          return "Expect basic understanding. Score leniently (7-10 for correct answers).";
-        case "Medium":
-          return "Expect solid understanding with some depth. Score normally.";
-        case "Hard":
-          return "Expect deep understanding, edge cases, and advanced concepts. Score strictly.";
-        default:
-          return "Score normally.";
-      }
-    };
-
     const difficultyExpectations = getDifficultyExpectations(question.difficulty);
 
-    // ✅ Improved system prompt
     const systemPrompt = `You are a senior technical interviewer at a top tech company. Evaluate the candidate's answer strictly but fairly.
 
 EVALUATION CRITERIA (each 0-10):
@@ -426,7 +441,6 @@ CANDIDATE'S ANSWER:
 WORD COUNT: ${wordCount} words
 LENGTH FEEDBACK: ${lengthFeedback}`;
 
-    // ✅ Call AI
     const response = await callAIWithRetry(systemPrompt, userPrompt);
     const rawText = response.choices[0]?.message?.content || "{}";
 
@@ -442,18 +456,15 @@ LENGTH FEEDBACK: ${lengthFeedback}`;
       return res.status(500).json({ success: false, message: "Failed to parse AI evaluation" });
     }
 
-    // Ensure scores are within range
     evaluation.overallScore = Math.max(0, Math.min(10, Number(evaluation.overallScore) || 0));
     evaluation.confidenceScore = Math.max(0, Math.min(10, Number(evaluation.confidenceScore) || 5));
     
-    // Add length analysis
     evaluation.lengthAnalysis = {
       wordCount,
       lengthScore,
       lengthFeedback
     };
     
-    // ✅ Store in cache
     evaluationCache.set(cacheKey, evaluation);
     setTimeout(() => evaluationCache.delete(cacheKey), 3600000);
 
@@ -520,16 +531,13 @@ export const completeSession = async (req, res) => {
     const totalScore = session.answers.reduce((sum, a) => sum + a.score, 0);
     const overallScore = Math.round((totalScore / session.answers.length) * 10);
     
-    // Calculate average confidence score
     const avgConfidence = session.answers.reduce((sum, a) => sum + (a.confidenceScore || 5), 0) / session.answers.length;
     
     // Group answers by category
     const answersByCategory = {};
     session.answers.forEach((answer) => {
       const cat = answer.questionCategory || "General";
-      if (!answersByCategory[cat]) {
-        answersByCategory[cat] = [];
-      }
+      if (!answersByCategory[cat]) answersByCategory[cat] = [];
       answersByCategory[cat].push(answer);
     });
     
@@ -540,35 +548,10 @@ export const completeSession = async (req, res) => {
       categoryAverages[cat] = Math.round((catTotal / answers.length) * 10);
     }
 
-    // IMPROVED SUMMARY PROMPT with category breakdown
-    const summaryPrompt = `An interview session just completed. Here are the results by category:
-
-${Object.entries(answersByCategory).map(([category, answers]) => `
-=== ${category} ===
-${answers.map((a, i) => `Q${i + 1}: ${a.questionTitle}
-Score: ${a.score}/10
-Confidence: ${a.confidenceScore || 5}/10
-Feedback: ${a.feedback}`).join("\n")}
-Average Score: ${categoryAverages[category]}%
-`).join("\n")}
-
-Overall Score: ${overallScore}/100
-Average Confidence: ${avgConfidence.toFixed(1)}/10
-
-Provide a detailed session summary. Return JSON:
-{
-  "strengths": ["strength1", "strength2", "strength3"],
-  "improvements": ["area1", "area2", "area3"],
-  "categoryAnalysis": ${JSON.stringify(Object.entries(categoryAverages).map(([cat, score]) => ({
-    category: cat,
-    score: score,
-    feedback: `Feedback for ${cat} category`
-  })))},
-  "overallFeedback": "2-3 sentence summary of overall performance",
-  "recommendedResources": ["resource1", "resource2"],
-  "nextSteps": ["step1", "step2"],
-  "confidenceAssessment": "Assessment of candidate's confidence level"
-}`;
+    // ✅ SHORT summary prompt — fast response from Cerebras
+    const summaryPrompt = `Interview done. Score: ${overallScore}/100, Confidence: ${avgConfidence.toFixed(1)}/10, Questions answered: ${session.answers.length}. Individual scores: ${session.answers.map(a => a.score).join(", ")}.
+Return ONLY this JSON (no extra text):
+{"strengths":["s1","s2","s3"],"improvements":["i1","i2"],"overallFeedback":"2 sentence summary of performance","recommendedResources":["r1"],"nextSteps":["n1","n2"],"confidenceAssessment":"brief confidence assessment","categoryAnalysis":[]}`;
 
     let strengths = [];
     let improvements = [];
@@ -578,8 +561,13 @@ Provide a detailed session summary. Return JSON:
     let nextSteps = [];
     let confidenceAssessment = "";
 
+    console.log("⏳ Starting AI summary call...");
     try {
-      const summaryMsg = await callAIWithRetry("You are an interview coach. Provide detailed feedback.", summaryPrompt);
+      const summaryMsg = await callAIWithTimeout(
+        "You are an interview coach. Return only valid JSON, no extra text.",
+        summaryPrompt,
+        15000
+      );
       const rawSummary = summaryMsg.choices[0]?.message?.content || "{}";
       const match = rawSummary.match(/\{[\s\S]*\}/);
       const summary = match ? JSON.parse(match[0]) : null;
@@ -593,10 +581,17 @@ Provide a detailed session summary. Return JSON:
         nextSteps = summary.nextSteps || [];
         confidenceAssessment = summary.confidenceAssessment || "";
       }
+      console.log("✅ AI summary done");
     } catch (e) {
-      console.error("Summary generation failed:", e.message);
+      console.error("❌ Summary generation failed:", e.message);
+      // Use fallback values — session still completes
+      strengths = ["Completed the interview session", "Attempted all questions"];
+      improvements = ["Review your answers for more depth", "Practice more regularly"];
+      overallFeedback = `You scored ${overallScore}/100. Keep practicing to improve your performance.`;
+      nextSteps = ["Review the feedback for each question", "Practice similar questions"];
     }
 
+    console.log("💾 Saving session to DB...");
     const updatedSession = await Session.findByIdAndUpdate(
       sessionId,
       {
@@ -615,6 +610,7 @@ Provide a detailed session summary. Return JSON:
       },
       { new: true }
     );
+    console.log("✅ Session saved, sending response");
 
     return successResponse(res, 200, "Session completed", {
       resultId: updatedSession._id,
@@ -631,6 +627,7 @@ Provide a detailed session summary. Return JSON:
       avgConfidence: Math.round(avgConfidence * 10) / 10,
     });
   } catch (err) {
+    console.error("❌ completeSession error:", err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };

@@ -17,9 +17,10 @@ import {
   ShieldCheckIcon,
   UsersIcon,
   QuestionMarkCircleIcon,
-  CalendarDaysIcon
+  CalendarDaysIcon,
+  StarIcon
 } from "@heroicons/react/24/outline";
-import { getToken, removeToken } from "@/lib/api";
+import api, { getToken, removeToken } from "@/lib/api";
 
 const navigation = [
   { name: "Overview", href: "/dashboard", icon: HomeIcon },
@@ -51,18 +52,13 @@ export default function DashboardLayout({
       }
 
       try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-
-        const data = await response.json();
+        // ✅ Use api instance — has 30s timeout and auto token
+        const response = await api.get("/api/auth/me");
+        const data = response.data;
 
         if (data.success) {
           setUser(data.data.user);
         } else {
-          // Token invalid or expired
           removeToken();
           router.push("/login");
         }
@@ -80,13 +76,7 @@ export default function DashboardLayout({
 
   const handleLogout = async () => {
     try {
-      const token = getToken();
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      await api.post("/api/auth/logout");
       removeToken();
       router.push("/login");
       router.refresh();
@@ -97,7 +87,6 @@ export default function DashboardLayout({
     }
   };
 
-  // Show loading state while verifying auth
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0D1B2A] flex items-center justify-center">
@@ -109,7 +98,6 @@ export default function DashboardLayout({
     );
   }
 
-  // If no user after loading, don't render dashboard
   if (!user) {
     return null;
   }
@@ -131,7 +119,7 @@ export default function DashboardLayout({
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-[#2a3a4a]">
-          <Link href="/dashboard" className="flex items-center gap-2 group">
+          <Link href="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-lg bg-[#FF6B6B]/10 border border-[#FF6B6B]/30 flex items-center justify-center group-hover:bg-[#FF6B6B]/20 transition-colors">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M2 4h5v2H2zM2 8h8v2H2zM2 12h6v2H2z" fill="#FF6B6B" />
@@ -242,7 +230,7 @@ export default function DashboardLayout({
             >
               <Bars3Icon className="h-6 w-6" />
             </button>
-            <Link href="/dashboard" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-lg bg-[#FF6B6B]/10 border border-[#FF6B6B]/30 flex items-center justify-center">
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
                   <path d="M2 4h5v2H2zM2 8h8v2H2zM2 12h6v2H2z" fill="#FF6B6B" />
@@ -254,11 +242,11 @@ export default function DashboardLayout({
                 Prepzy<span className="text-[#FF6B6B]">AI</span>
               </span>
             </Link>
-            <div className="w-8" /> {/* Spacer for alignment */}
+            <div className="w-8" />
           </div>
         </div>
 
-        {/* Content with padding for mobile header */}
+        {/* Content */}
         <main className="pt-16 lg:pt-0 min-h-screen">
           {children}
         </main>

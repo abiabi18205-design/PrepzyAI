@@ -43,7 +43,7 @@ export default function AuthLayout({
             ) : isSignup ? (
               <Link
                 href="/login"
-                className="px-5 py-2 rounded-xl border border-[#2a3a4a] text-[#FFF5F2] font-heading font-bold text-sm hover:border-[#FF6B6B]/40 transition-all"
+                className="px-5 py-2 rounded-xl bg-[#FF6B6B] text-[#0D1B2A] font-heading font-bold text-sm hover:bg-[#FFA07A] transition-all"
               >
                 Sign In
               </Link>

@@ -3,11 +3,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getToken } from "@/lib/api";
-import { 
-  ChartBarIcon, 
-  ClockIcon, 
-  TrophyIcon, 
+import api from "@/lib/api";
+import {
+  ChartBarIcon,
+  ClockIcon,
+  TrophyIcon,
   ArrowTrendingUpIcon,
   CalendarIcon,
   DocumentTextIcon,
@@ -126,16 +126,15 @@ export default function ResultsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [expandedAnswers, setExpandedAnswers] = useState<Set<string>>(new Set());
 
-  // Fetch results
   useEffect(() => {
     fetchResults();
     fetchStats();
   }, [filters, pagination.page]);
 
+  // ✅ Uses api instance (auto attaches token, 30s timeout)
   const fetchResults = async () => {
     setLoading(true);
     try {
-      const token = getToken();
       const queryParams = new URLSearchParams({
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
@@ -145,16 +144,8 @@ export default function ResultsPage() {
         ...(filters.search && { search: filters.search })
       });
 
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/practice/results?${queryParams}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      
-      const data = await response.json();
+      const res = await api.get(`/api/practice/results?${queryParams}`);
+      const data = res.data;
       if (data.success) {
         setResults(data.data.results);
         setPagination(prev => ({
@@ -170,19 +161,11 @@ export default function ResultsPage() {
     }
   };
 
+  // ✅ Uses api instance (auto attaches token, 30s timeout)
   const fetchStats = async () => {
     try {
-      const token = getToken();
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/dashboard/stats`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      
-      const data = await response.json();
+      const res = await api.get(`/api/dashboard/stats`);
+      const data = res.data;
       if (data.success) {
         setStats({
           totalInterviews: data.data.totalInterviews || 0,
@@ -228,18 +211,21 @@ export default function ResultsPage() {
   };
 
   const formatDate = (dateString: string) => {
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "N/A";
+
     const now = new Date();
     const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return "Today";
     if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 7 && diffDays > 1) return `${diffDays} days ago`;
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const getStatusBadge = (status: string) => {
-    switch(status) {
+    switch (status) {
       case "completed":
         return { icon: CheckCircleIcon, text: "Completed", color: "text-green-400 bg-green-400/10" };
       case "in-progress":
@@ -257,17 +243,6 @@ export default function ResultsPage() {
       newExpanded.add(answerId);
     }
     setExpandedAnswers(newExpanded);
-  };
-
-  const getCriteriaLabel = (key: string) => {
-    const labels: Record<string, string> = {
-      accuracy: "Technical Accuracy",
-      completeness: "Completeness",
-      clarity: "Clarity & Structure",
-      examples: "Real-world Examples",
-      communication: "Communication",
-    };
-    return labels[key] || key;
   };
 
   return (
@@ -352,7 +327,7 @@ export default function ResultsPage() {
               className="w-full pl-4 pr-4 py-3 rounded-xl bg-[#1B2838] border border-[#2a3a4a] text-[#FFF5F2] placeholder-[#4a5a6a] focus:border-[#FF6B6B]/40 outline-none transition-colors"
             />
           </div>
-          
+
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="md:hidden px-4 py-3 rounded-xl bg-[#1B2838] border border-[#2a3a4a] text-[#9aabb8] flex items-center justify-center gap-2"
@@ -362,78 +337,53 @@ export default function ResultsPage() {
           </button>
         </div>
 
-        {/* Filters Panel */}
         <div className={`mt-4 ${showFilters ? 'block' : 'hidden md:block'}`}>
           <div className="flex flex-wrap gap-4">
-            {/* Time Range */}
             <div className="flex gap-2">
               {timeRanges.map((range) => (
                 <button
                   key={range.value}
                   onClick={() => handleFilterChange("timeRange", range.value)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    filters.timeRange === range.value
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filters.timeRange === range.value
                       ? "bg-[#FF6B6B] text-[#0D1B2A]"
                       : "bg-[#1B2838] text-[#9aabb8] hover:text-[#FFF5F2] border border-[#2a3a4a]"
-                  }`}
+                    }`}
                 >
                   {range.label}
                 </button>
               ))}
             </div>
 
-            {/* Category Filter */}
             <div className="flex gap-2">
               {categories.map((cat) => (
                 <button
                   key={cat}
                   onClick={() => handleFilterChange("category", cat)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    filters.category === cat
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filters.category === cat
                       ? "bg-[#FF6B6B] text-[#0D1B2A]"
                       : "bg-[#1B2838] text-[#9aabb8] hover:text-[#FFF5F2] border border-[#2a3a4a]"
-                  }`}
+                    }`}
                 >
                   {cat}
                 </button>
               ))}
             </div>
 
-            {/* Status Filter */}
             <div className="flex gap-2">
-              <button
-                onClick={() => handleFilterChange("status", "all")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  filters.status === "all"
-                    ? "bg-[#FF6B6B] text-[#0D1B2A]"
-                    : "bg-[#1B2838] text-[#9aabb8] hover:text-[#FFF5F2] border border-[#2a3a4a]"
-                }`}
-              >
-                All
-              </button>
-              <button
-                onClick={() => handleFilterChange("status", "completed")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  filters.status === "completed"
-                    ? "bg-[#FF6B6B] text-[#0D1B2A]"
-                    : "bg-[#1B2838] text-[#9aabb8] hover:text-[#FFF5F2] border border-[#2a3a4a]"
-                }`}
-              >
-                Completed
-              </button>
-              <button
-                onClick={() => handleFilterChange("status", "in-progress")}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                  filters.status === "in-progress"
-                    ? "bg-[#FF6B6B] text-[#0D1B2A]"
-                    : "bg-[#1B2838] text-[#9aabb8] hover:text-[#FFF5F2] border border-[#2a3a4a]"
-                }`}
-              >
-                In Progress
-              </button>
+              {["all", "completed", "in-progress"].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => handleFilterChange("status", s)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filters.status === s
+                      ? "bg-[#FF6B6B] text-[#0D1B2A]"
+                      : "bg-[#1B2838] text-[#9aabb8] hover:text-[#FFF5F2] border border-[#2a3a4a]"
+                    }`}
+                >
+                  {s === "all" ? "All" : s === "completed" ? "Completed" : "In Progress"}
+                </button>
+              ))}
             </div>
 
-            {/* Min Score Filter */}
             <div className="flex items-center gap-3">
               <span className="text-[#9aabb8] text-sm">Min Score:</span>
               <select
@@ -448,7 +398,6 @@ export default function ResultsPage() {
               </select>
             </div>
 
-            {/* Clear Filters */}
             {(filters.timeRange !== "all" || filters.minScore !== 0 || filters.status !== "all" || filters.search || filters.category !== "All") && (
               <button
                 onClick={clearFilters}
@@ -483,7 +432,8 @@ export default function ResultsPage() {
           {results.map((result) => {
             const StatusIcon = getStatusBadge(result.status).icon;
             const statusStyle = getStatusBadge(result.status).color;
-            
+            const isCompleted = result.status === "completed";
+
             return (
               <div
                 key={result._id}
@@ -536,7 +486,6 @@ export default function ResultsPage() {
                   </div>
                 </div>
 
-                {/* Strengths Preview */}
                 {result.strengths && result.strengths.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-[#2a3a4a]">
                     {result.strengths.slice(0, 2).map((strength, idx) => (
@@ -548,9 +497,11 @@ export default function ResultsPage() {
                   </div>
                 )}
 
-                <div className="mt-4 flex items-center justify-end">
-                  <EyeIcon className="h-4 w-4 text-[#4a5a6a] group-hover:text-[#FF6B6B] transition-colors" />
-                </div>
+                {isCompleted && (
+                  <div className="mt-4 flex items-center justify-end gap-3">
+                    <EyeIcon className="h-4 w-4 text-[#4a5a6a] group-hover:text-[#FF6B6B] transition-colors" />
+                  </div>
+                )}
               </div>
             );
           })}
@@ -567,7 +518,7 @@ export default function ResultsPage() {
           >
             <ChevronLeftIcon className="h-5 w-5" />
           </button>
-          
+
           <div className="flex gap-2">
             {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
               let pageNum;
@@ -580,23 +531,21 @@ export default function ResultsPage() {
               } else {
                 pageNum = pagination.page - 2 + i;
               }
-              
               return (
                 <button
                   key={pageNum}
                   onClick={() => handlePageChange(pageNum)}
-                  className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-all ${
-                    pagination.page === pageNum
+                  className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-all ${pagination.page === pageNum
                       ? "bg-[#FF6B6B] text-[#0D1B2A]"
                       : "border border-[#2a3a4a] text-[#9aabb8] hover:border-[#FF6B6B] hover:text-[#FF6B6B]"
-                  }`}
+                    }`}
                 >
                   {pageNum}
                 </button>
               );
             })}
           </div>
-          
+
           <button
             onClick={() => handlePageChange(pagination.page + 1)}
             disabled={pagination.page === pagination.totalPages}
@@ -607,11 +556,10 @@ export default function ResultsPage() {
         </div>
       )}
 
-      {/* Result Detail Modal - Simplified version to avoid duplication */}
+      {/* Result Detail Modal */}
       {showModal && selectedResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="relative max-w-4xl w-full max-h-[90vh] overflow-y-auto rounded-2xl bg-[#1B2838] border border-[#2a3a4a] shadow-2xl">
-            {/* Modal Header */}
             <div className="sticky top-0 bg-[#1B2838] border-b border-[#2a3a4a] p-6">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -627,7 +575,7 @@ export default function ResultsPage() {
                   <div className="flex gap-4 text-sm text-[#9aabb8] flex-wrap">
                     <div className="flex items-center gap-1">
                       <CalendarIcon className="h-4 w-4" />
-                      <span>{new Date(selectedResult.date).toLocaleString()}</span>
+                      <span>{formatDate(selectedResult.date)}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <ClockIcon className="h-4 w-4" />
@@ -648,9 +596,7 @@ export default function ResultsPage() {
               </div>
             </div>
 
-            {/* Modal Content */}
             <div className="p-6 space-y-6">
-              {/* Overall Score */}
               <div className="text-center p-6 rounded-2xl bg-gradient-to-br from-[#FF6B6B]/10 to-transparent border border-[#FF6B6B]/20">
                 <div className={`text-6xl font-heading font-bold ${getScoreColor(selectedResult.overallScore)} mb-2`}>
                   {selectedResult.overallScore}%
@@ -658,7 +604,6 @@ export default function ResultsPage() {
                 <p className="text-[#9aabb8]">Overall Performance Score</p>
               </div>
 
-              {/* Strengths */}
               {selectedResult.strengths && selectedResult.strengths.length > 0 && (
                 <div>
                   <h3 className="font-heading font-bold text-green-400 mb-3 flex items-center gap-2">
@@ -675,7 +620,6 @@ export default function ResultsPage() {
                 </div>
               )}
 
-              {/* Areas for Improvement */}
               {selectedResult.improvements && selectedResult.improvements.length > 0 && (
                 <div>
                   <h3 className="font-heading font-bold text-yellow-400 mb-3 flex items-center gap-2">
@@ -692,7 +636,6 @@ export default function ResultsPage() {
                 </div>
               )}
 
-              {/* AI Feedback */}
               <div>
                 <h3 className="font-heading font-bold text-[#FF6B6B] mb-3 flex items-center gap-2">
                   <SparklesIcon className="h-5 w-5" />
@@ -705,12 +648,13 @@ export default function ResultsPage() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
+
+
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => {
                     setShowModal(false);
-                    router.push(`/dashboard/practice/${selectedResult.sessionId}`);
+                    router.push(`/dashboard/practice`);
                   }}
                   className="flex-1 py-3 rounded-xl bg-[#FF6B6B] text-[#0D1B2A] font-heading font-bold hover:bg-[#FFA07A] transition-all"
                 >
@@ -727,6 +671,7 @@ export default function ResultsPage() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
