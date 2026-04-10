@@ -69,7 +69,7 @@ export default function SignupPage() {
   };
 
   const handleGoogleSignup = () => {
-    window.location.href = "http://localhost:5000/api/auth/google";
+    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/api/auth/google`;
   };
 
   const inputClass =
